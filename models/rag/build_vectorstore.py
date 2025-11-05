@@ -1,39 +1,60 @@
 # build_vectorstore.py
-import os, pickle
+import os
+from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from dotenv import load_dotenv
+from langchain_community.document_loaders import PyPDFLoader
 
-load_dotenv()  # reads .env with OPENAI_API_KEY=...
+load_dotenv()
 
-# Validate OpenAI API key is set
 if not os.getenv("OPENAI_API_KEY"):
-    raise ValueError(
-        "OPENAI_API_KEY not found. Please set it in your environment or create a .env file.\n"
-        "Example: OPENAI_API_KEY=sk-..."
-    )
+    raise ValueError("OPENAI_API_KEY not found. Add it to .env")
 
-# Get the directory of the current script
 current_dir = os.path.dirname(os.path.abspath(__file__))
+data_path_code = os.path.normpath(os.path.join(current_dir, "../../data/philadelphia-pa-1.txt"))
+data_path_checklist = os.path.normpath(os.path.join(current_dir, "../../data/Development_Checklist-July-2024.pdf"))
 
-# Build the path to data/philadelphia-pa-1.txt (go up 2 levels from models/rag/ to project root)
-data_path = os.path.join(current_dir, "../../data/philadelphia-pa-1.txt")
-
-# Normalize (resolve ..)
-data_path = os.path.normpath(data_path)
-
-with open(data_path, "r", encoding="utf-8") as f:
-    text = f.read()
+# Load zoning text
+with open(data_path_code, "r", encoding="utf-8") as f:
+    text_code = f.read()
 
 splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-docs = [Document(page_content=t) for t in splitter.split_text(text)]
+docs_code = [Document(page_content=t, metadata={"source": "philadelphia-pa-1.txt"}) for t in splitter.split_text(text_code)]
 
-embeddings = OpenAIEmbeddings()
-vectorstore = FAISS.from_documents(docs, embeddings)
+# Load checklist PDF
+# TODO: In order to improve accuracy of the checklist, we should tabulate the data so for 
+# each requirement listed in the checklist, we can have a list of contacts and links to 
+# relevant documents.
+loader = PyPDFLoader(data_path_checklist)
+pdf_docs = loader.load()
+docs_checklist = splitter.split_documents(pdf_docs)
+for d in docs_checklist:
+    d.metadata["source"] = "Development_Checklist-July-2024.pdf"
 
-# Save vectorstore to data/faiss_index (relative to project root)
-save_path = os.path.join(current_dir, "../../data/faiss_index")
-save_path = os.path.normpath(save_path)
-vectorstore.save_local(save_path)
+
+# Embed & save
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+vectorstore_code = FAISS.from_texts(
+    [doc.page_content for doc in docs_code],
+    embeddings,
+    metadatas=[doc.metadata for doc in docs_code]
+)
+
+vectorstore_checklist = FAISS.from_texts(
+    [doc.page_content for doc in docs_checklist],
+    embeddings,
+    metadatas=[doc.metadata for doc in docs_checklist]
+)
+
+save_path_code = os.path.normpath(os.path.join(current_dir, "../../data/faiss_index_code"))
+save_path_checklist = os.path.normpath(os.path.join(current_dir, "../../data/faiss_index_checklist"))
+if os.path.exists(save_path_code) and os.path.exists(save_path_checklist):
+    import shutil
+    shutil.rmtree(save_path_code)
+    shutil.rmtree(save_path_checklist)
+
+vectorstore_code.save_local(save_path_code)
+vectorstore_checklist.save_local(save_path_checklist)
+print(f"Vectorstore built and saved to {save_path_code} and {save_path_checklist}")

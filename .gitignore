@@ -8,7 +8,8 @@ venv/
 
 # Data and model artifacts
 /data/faiss_index/
-
+/data/faiss_index_code/
+/data/faiss_index_checklist/
 # Logs
 *.log
 
