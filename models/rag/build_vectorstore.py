@@ -26,7 +26,24 @@ docs_code = [Document(page_content=t, metadata={"source": "philadelphia-pa-1.txt
 # Load checklist PDF
 # TODO: In order to improve accuracy of the checklist, we should tabulate the data so for 
 # each requirement listed in the checklist, we can have a list of contacts and links to 
-# relevant documents.
+# relevant documents and embed them into the vectorstore instead of just the text of the page.
+# example for a Complex Zoning Review page 10 in checklist https://www.phila.gov/media/20240712184545/Development_Checklist-July-2024.pdf:
+# - Type: "Complex Zoning Review"
+#   - REQUIRED FOR:: ["Greater than 50 residential units,
+#   ,"Any commercial or industrial use" ,
+#   , "Non-residential developments with a total property frontage of 100 linear feet or greater",
+#   ,"Projects located on a state route",
+#   ,"Projects involving a City Plan Action, impacts an intersection, or requires a traffic
+#   impact study"]
+#   - SUBMISSION REQUIREMENTS: ["Existing conditions plan", "Proposed site plan"]
+#   - REQUIREMENTS AND RELEVANT DOCUMENTS: [
+#   "https://www.phila.gov/media/20210112171941/PG-005-INF-Streets-Prerequisite-Approval-1.12.22Go-Live-Version.pdf
+#   "https://www.phila.gov/documents/right-of-way-improvement-standards/"
+#   ]
+#   - CONTACTS: [Streets Department, Right of Way Unit StreetsROW.PlanReview@phila.gov]
+#   - REVIEW TIME: ["Completeness Review: 1 Business Day", "Technical Review: 14 Business Days"]
+
+
 loader = PyPDFLoader(data_path_checklist)
 pdf_docs = loader.load()
 docs_checklist = splitter.split_documents(pdf_docs)
