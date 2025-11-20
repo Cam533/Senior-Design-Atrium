@@ -5,5 +5,5 @@ python-dotenv>=1.0.0
 geopandas>=0.14.0
 geoalchemy2>=0.14.0
 sqlalchemy>=2.0.0
-
+fastapi[standard]>=0.104.0
 
