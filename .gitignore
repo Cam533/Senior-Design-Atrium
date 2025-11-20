@@ -10,6 +10,16 @@ venv/
 /data/faiss_index/
 /data/faiss_index_code/
 /data/faiss_index_checklist/
+
+# Large data files (exceed GitHub's 100MB limit)
+data/GSI_Planning_Parcels.csv
+*.csv
+!**/Existing_Trails.csv
+!**/Land_Use*.csv
+!**/PPR_*.csv
+!**/Registered_Community_Gardens.csv
+!**/Vacant_Block_Percent_Building.csv
+!**/ppr_tree_inventory_2024.csv
 # Logs
 *.log
 
