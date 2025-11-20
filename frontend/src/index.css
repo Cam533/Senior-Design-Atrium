@@ -1,0 +1,56 @@
+:root {
+  --bg: #f7f9fb;
+  --text: #0f172a;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.topbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: white;
+  box-shadow: 0 2px 6px rgba(11,15,25,0.06);
+  z-index: 10;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.main-content {
+  flex: 1 1 auto;
+  display: flex;
+  padding: 12px;
+}
+
+.map-container {
+  flex: 1 1 auto;
+  min-height: 0; /* allow flex child to shrink properly */
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(11,15,25,0.04);
+}
+
+.map-wrapper {
+  height: 100%;
+  width: 100%;
+}
