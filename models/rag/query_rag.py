@@ -208,8 +208,12 @@ tools = [retriever_tool_code, get_zoning_for_address]
 agent = create_agent(llm, tools, system_prompt=system_prompt)
 
 # Example 1
+silly_q = """
+Can i turn a shoe into a pumpkin?
+"""
 user_q = """What do I need to do if I want to turn a lot at 
-"31 S 40th St, Philadelphia, PA 19104" into a park?, what zoning do I need to change the lot to?"""
+"31 S 40th St, Philadelphia, PA 19104" into a an apartment building? the lot is currently empty 
+so this proejct has new construction"""
 result = agent.invoke({"messages": [{"role": "user", "content": user_q}]})
 # Extract the last AI message content (AIMessage objects have .content attribute)
 ai_messages = [msg for msg in result["messages"] if isinstance(msg, AIMessage) and msg.content]
