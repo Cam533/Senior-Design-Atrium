@@ -50,13 +50,17 @@ def _get_lot_size (projected_x: float, projected_y: float) -> Dict[str, Any]:
 
 
 def _geocode_to_web_mercator(address: str) -> Optional[Dict[str, float]]:
-    geolocator = Nominatim(user_agent="philly-zoning-rag")
-    location = geolocator.geocode(address)
-    if not location:
+    geolocator = Nominatim(user_agent="philly-zoning-rag", timeout=10)
+    try:
+        location = geolocator.geocode(address)
+        if not location:
+            return None
+        transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+        proj_x, proj_y = transformer.transform(location.longitude, location.latitude)
+        return {"x": proj_x, "y": proj_y}
+    except Exception as e:
+        print(f"Geocoding error: {e}")
         return None
-    transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
-    proj_x, proj_y = transformer.transform(location.longitude, location.latitude)
-    return {"x": proj_x, "y": proj_y}
 
 
 @tool("get_zoning_for_address", return_direct=False)
@@ -65,7 +69,13 @@ def get_zoning_for_address(address: str) -> str:
     coords = _geocode_to_web_mercator(address)
     if not coords:
         return json.dumps({"ok": False, "error": "Address not found or outside Philadelphia."})
+    
+    print(f"DEBUG: Geocoded coords for {address}: {coords}") # Debug print
+    
     data = _query_zoning(coords["x"], coords["y"])
+    
+    print(f"DEBUG: ArcGIS Response: {json.dumps(data)[:200]}...") # Debug print
+
     if not data.get("features"):
         return json.dumps({"ok": False, "error": "No zoning data found for this point."})
     attrs = data["features"][0]["attributes"]
@@ -207,18 +217,26 @@ tools = [retriever_tool_code, get_zoning_for_address]
 
 agent = create_agent(llm, tools, system_prompt=system_prompt)
 
-# Example 1
-silly_q = """
-Can i turn a shoe into a pumpkin?
-"""
-user_q = """What do I need to do if I want to turn a lot at 
-"31 S 40th St, Philadelphia, PA 19104" into a an apartment building? the lot is currently empty 
-so this proejct has new construction"""
-result = agent.invoke({"messages": [{"role": "user", "content": user_q}]})
-# Extract the last AI message content (AIMessage objects have .content attribute)
-ai_messages = [msg for msg in result["messages"] if isinstance(msg, AIMessage) and msg.content]
-if ai_messages:
-    print(ai_messages[-1].content)
-else:
-    print("No AI response found")
+def get_rag_response(message: str) -> str:
+    result = agent.invoke({"messages": [{"role": "user", "content": message}]})
+    ai_messages = [msg for msg in result["messages"] if isinstance(msg, AIMessage) and msg.content]
+    if ai_messages:
+        return ai_messages[-1].content
+    else:
+        return "No AI response found"
 
+if __name__ == "__main__":
+    # Example 1
+  silly_q = """
+  Can i turn a shoe into a pumpkin?
+  """
+  user_q = """What do I need to do if I want to turn a lot at 
+  "31 S 40th St, Philadelphia, PA 19104" into a an apartment building? the lot is currently empty 
+  so this proejct has new construction"""
+  result = agent.invoke({"messages": [{"role": "user", "content": user_q}]})
+  # Extract the last AI message content (AIMessage objects have .content attribute)
+  ai_messages = [msg for msg in result["messages"] if isinstance(msg, AIMessage) and msg.content]
+  if ai_messages:
+      print(ai_messages[-1].content)
+  else:
+      print("No AI response found")
