@@ -511,6 +511,97 @@ def merge_all_data(opa_df: pd.DataFrame, geocoded_df: pd.DataFrame,
     
     return merged
 
+def _find_latlon_cols(df):
+    """Return (lat_col, lon_col) or (None, None) if not found."""
+    candidates = {
+        "lat": ["latitude", "lat", "y", "lat_y"],
+        "lon": ["longitude", "lon", "lng", "x", "lon_x"]
+    }
+    lat_col = next((c for c in candidates["lat"] if c in df.columns), None)
+    lon_col = next((c for c in candidates["lon"] if c in df.columns), None)
+    return lat_col, lon_col
+
+def _ensure_census_cols(df):
+    """Ensure common census columns exist with canonical names used by backend SQL.
+       Returns df with renamed columns where possible.
+    """
+    # mapping of possible source names -> canonical names expected by backend
+    mapping_candidates = {
+        "tract_median_income": ["tract_median_income", "B19013_001E", "median_income"],
+        "tract_population": ["tract_population", "B01003_001E", "population"],
+        "census_tract": ["census_tract", "tract_geoid", "tract", "geoid"]
+    }
+    rename_map = {}
+    for canonical, candidates in mapping_candidates.items():
+        for c in candidates:
+            if c in df.columns:
+                rename_map[c] = canonical
+                break
+    if rename_map:
+        df = df.rename(columns=rename_map)
+    return df
+
+def save_enriched_outputs(df,
+                          s3_bucket=None,
+                          s3_key="data/philadelphia_parcels_enriched.parquet",
+                          db_url=None,
+                          pg_table="parcels_enriched"):
+    """Save enriched dataframe to S3 (parquet) and to Postgres/PostGIS table.
+    - s3_bucket: bucket name or None
+    - db_url: SQLAlchemy DATABASE_URL or None
+    """
+    # normalize census column names so backend SQL works
+    df = _ensure_census_cols(df)
+
+    # discover lat/lon
+    lat_col, lon_col = _find_latlon_cols(df)
+    if lat_col and lon_col:
+        df["__etl_lat"] = df[lat_col].astype(float)
+        df["__etl_lon"] = df[lon_col].astype(float)
+    else:
+        # attempt to use geometry columns if present (not implemented here)
+        print("Warning: no lat/lon columns found in enriched dataframe. geom will not be created in Postgres.")
+
+    # save to S3
+    if s3_bucket:
+        s3_path = f"s3://{s3_bucket}/{s3_key}"
+        try:
+            df.to_parquet(s3_path, index=False)
+            print(f"Saved enriched parquet to {s3_path}")
+        except Exception as e:
+            print(f"Failed to write parquet to S3 ({s3_path}): {e}")
+
+    # save to Postgres/PostGIS
+    if db_url:
+        engine = create_engine(db_url)
+        tmp_table = pg_table + "_tmp"
+        # pick columns to write: keep all but rename helper cols
+        write_df = df.copy()
+        # write via pandas to_sql (replace)
+        try:
+            write_df.to_sql(tmp_table, engine, if_exists="replace", index=False)
+            with engine.begin() as conn:
+                # add geom column and populate from lon/lat if present
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+                # ensure geom column exists
+                conn.execute(text(f"ALTER TABLE {tmp_table} DROP COLUMN IF EXISTS geom;"))
+                conn.execute(text(f"ALTER TABLE {tmp_table} ADD COLUMN geom geometry(Point,4326);"))
+                if "__etl_lon" in write_df.columns and "__etl_lat" in write_df.columns:
+                    conn.execute(text(f"""
+                        UPDATE {tmp_table}
+                        SET geom = ST_SetSRID(ST_MakePoint(CAST("__etl_lon" AS double precision),
+                                                           CAST("__etl_lat" AS double precision)), 4326)
+                        WHERE "__etl_lon" IS NOT NULL AND "__etl_lat" IS NOT NULL;
+                    """))
+                # create spatial index
+                conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_{pg_table}_geom_tmp ON {tmp_table} USING GIST (geom);"))
+                # atomically replace final table
+                conn.execute(text(f"DROP TABLE IF EXISTS {pg_table};"))
+                conn.execute(text(f"ALTER TABLE {tmp_table} RENAME TO {pg_table};"))
+            print(f"Wrote enriched table to Postgres table: {pg_table}")
+        except Exception as e:
+            print(f"Failed to write to Postgres ({db_url}): {e}")
+
 def main():
     """Run the complete ETL pipeline"""
     
@@ -574,7 +665,10 @@ def main():
     if SAMPLE_SIZE:
         print(f"\n⚠️  This was a SAMPLE run with {SAMPLE_SIZE:,} properties")
         print("To process all properties, set SAMPLE_SIZE = None and run again")
-
-
+    
+    save_enriched_outputs(final_df,
+                      s3_bucket=os.getenv("S3_BUCKET"),
+                      db_url=os.getenv("DATABASE_URL"),
+                      pg_table="parcels_enriched")
 if __name__ == "__main__":
     main()

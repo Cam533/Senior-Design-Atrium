@@ -25,6 +25,39 @@ const getMapData = async () => {
   }
 }
 
+function onMapClick(evt) {
+    const lat = evt.latlng ? evt.latlng.lat : evt.lat;
+    const lon = evt.latlng ? evt.latlng.lng : evt.lon;
+    const body = { lat, lon, radius_m: 100 };
+
+    fetch("http://localhost:8000/census_nearby", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        console.log("census_nearby:", data);
+        // render popup or sidebar using data.results
+        // Example: show first tract summary
+        if (data.results && data.results.length) {
+          const first = data.results[0];
+          const html = `
+            <div>
+              <strong>Tract:</strong> ${first.census_tract || "n/a"}<br/>
+              <strong>Parcels:</strong> ${first.parcel_count}<br/>
+              <strong>Mean Median Income:</strong> ${first.mean_median_income || "n/a"}<br/>
+              <strong>Mean Population:</strong> ${first.mean_population || "n/a"}
+            </div>`;
+          // show popup at clicked location (example using Leaflet)
+          L.popup().setLatLng([lat, lon]).setContent(html).openOn(mapInstance);
+        } else {
+          L.popup().setLatLng([lat, lon]).setContent("No parcels found nearby").openOn(mapInstance);
+        }
+      })
+      .catch((err) => console.error("census_nearby error", err));
+}
+
 export default function Map() {
   const [mapData, setMapData] = useState(null)
   const center = [39.9526, -75.1652] // Philadelphia
@@ -61,6 +94,7 @@ export default function Map() {
     />
   ) : null
 
+  // need to add this somewhere: map.on('click', onMapClick);
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%' }}>
       
