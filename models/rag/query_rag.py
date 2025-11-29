@@ -217,13 +217,26 @@ tools = [retriever_tool_code, get_zoning_for_address]
 
 agent = create_agent(llm, tools, system_prompt=system_prompt)
 
-def get_rag_response(message: str) -> str:
-    result = agent.invoke({"messages": [{"role": "user", "content": message}]})
-    ai_messages = [msg for msg in result["messages"] if isinstance(msg, AIMessage) and msg.content]
-    if ai_messages:
-        return ai_messages[-1].content
-    else:
-        return "No AI response found"
+def get_rag_response(message: str, plotInfo: dict) -> str:
+    # Inject plot information into the conversation
+    context_prefix = (
+        "Here is additional parcel/plot context for this question. "
+        "Use it in your reasoning:\n\n"
+        f"{json.dumps(plotInfo, indent=2)}\n\n"
+    )
+
+    result = agent.invoke({
+        "messages": [
+            {"role": "user", "content": context_prefix + message}
+        ]
+    })
+
+    ai_messages = [
+        msg for msg in result["messages"]
+        if isinstance(msg, AIMessage) and msg.content
+    ]
+    return ai_messages[-1].content if ai_messages else "No AI response found"
+
 
 if __name__ == "__main__":
     # Example 1
