@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
 import Chat from './Chat'
+import Information from './Information'
 import L from 'leaflet'
 
 // Fix default icon paths for Vite asset handling
@@ -67,8 +68,9 @@ function onMapClick(evt) {
 export default function Map() {
   const [mapData, setMapData] = useState(null)
   const center = [39.9526, -75.1652] // Philadelphia
-  const [showChat, setShowChat] = useState(false) 
+  const [showSidebar, setShowSidebar] = useState(false) 
   const [selectedPolygon, setSelectedPolygon] = useState(null)
+  const [activeTab, setActiveTab] = useState('info') // 'info' or 'chat'
 
   useEffect(() => {
     getMapData().then(data => {
@@ -100,7 +102,8 @@ export default function Map() {
           layer.setStyle({ color: "red" })
           
           setSelectedPolygon(feature.properties)
-          setShowChat(true)
+          setShowSidebar(true)
+          setActiveTab('info') // Show info first when polygon is clicked
         })
       }}
     />
@@ -121,8 +124,8 @@ export default function Map() {
         </MapContainer>
       </div>
 
-      {/* Chat Sidebar */}
-      {showChat && (
+      {/* Sidebar with Tabs */}
+      {showSidebar && (
         <div style={{ 
           width: '400px', 
           borderLeft: '1px solid #ccc', 
@@ -130,17 +133,69 @@ export default function Map() {
           display: 'flex',
           flexDirection: 'column'
         }}>
-          <div style={{ padding: '10px', background: '#f1f5f9', display: 'flex', justifyContent: 'space-between' }}>
-            <strong>Chat</strong>
-            <button onClick={() => setShowChat(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>✖</button>
+          {/* Tab Header */}
+          <div style={{ 
+            display: 'flex', 
+            borderBottom: '2px solid #e0e0e0',
+            background: '#f1f5f9'
+          }}>
+            <button
+              onClick={() => setActiveTab('info')}
+              style={{
+                flex: 1,
+                padding: '12px',
+                border: 'none',
+                background: activeTab === 'info' ? 'white' : 'transparent',
+                cursor: 'pointer',
+                fontWeight: activeTab === 'info' ? '600' : '400',
+                color: activeTab === 'info' ? '#2b8cbe' : '#666',
+                borderBottom: activeTab === 'info' ? '3px solid #2b8cbe' : '3px solid transparent',
+                transition: 'all 0.2s'
+              }}
+            >
+              Information
+            </button>
+            <button
+              onClick={() => setActiveTab('chat')}
+              style={{
+                flex: 1,
+                padding: '12px',
+                border: 'none',
+                background: activeTab === 'chat' ? 'white' : 'transparent',
+                cursor: 'pointer',
+                fontWeight: activeTab === 'chat' ? '600' : '400',
+                color: activeTab === 'chat' ? '#2b8cbe' : '#666',
+                borderBottom: activeTab === 'chat' ? '3px solid #2b8cbe' : '3px solid transparent',
+                transition: 'all 0.2s'
+              }}
+            >
+              Chat
+            </button>
+            <button 
+              onClick={() => setShowSidebar(false)} 
+              style={{ 
+                border: 'none', 
+                background: 'transparent', 
+                cursor: 'pointer',
+                padding: '0 15px',
+                fontSize: '18px',
+                color: '#666'
+              }}
+            >
+              ✖
+            </button>
           </div>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            {/* You can pass selectedPolygon to Chat if you want it to know context */}
-            <Chat plotInfo={selectedPolygon} />
+          
+          {/* Tab Content */}
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {activeTab === 'info' ? (
+              <Information plotInfo={selectedPolygon} />
+            ) : (
+              <Chat plotInfo={selectedPolygon} />
+            )}
           </div>
         </div>
       )}
-
     </div>
   )
 }
