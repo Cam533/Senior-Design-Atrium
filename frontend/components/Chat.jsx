@@ -1,18 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react'
 
-const API_URL = 'http://localhost:8000/chat'
+const API_URL_CHAT = 'http://localhost:8000/chat'
 
 const initialMessages = [
   { id: 1, text: "Hello! How can I help you with Philadelphia development questions?", sender: 'bot' }
 ]
 
-const callChat = async (message) => {
-  const response = await fetch(API_URL, {
+const callChat = async (message, plotInfo) => {
+  const response = await fetch(API_URL_CHAT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, plotInfo }),
   })
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`)
@@ -20,7 +20,7 @@ const callChat = async (message) => {
   return response.json()
 }
 
-export default function Chat() {
+export default function Chat({ plotInfo }) {
   const [messages, setMessages] = useState(initialMessages)
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -56,7 +56,7 @@ export default function Chat() {
 
     try {
       // Call backend API
-      const data = await callChat(currentInput)
+      const data = await callChat(currentInput, plotInfo)
       
       // Remove loading message and add bot response
       setMessages(prev => {
