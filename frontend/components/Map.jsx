@@ -17,8 +17,14 @@ L.Icon.Default.mergeOptions({
 const getMapData = async () => {
   try {
     const response = await fetch('http://localhost:8000/map')
-    if (!response.ok) throw new Error('Failed to fetch map data')
-    return await response.json()
+    if (!response.ok) throw new Error(`Failed to fetch map data: ${response.status}`)
+    const data = await response.json()
+    console.log("Map data received:", {
+      type: data.type,
+      featureCount: data.features ? data.features.length : 0,
+      sampleFeature: data.features && data.features.length > 0 ? data.features[0] : null
+    })
+    return data
   } catch (error) {
     console.error("Error loading map data:", error)
     return null
@@ -66,7 +72,13 @@ export default function Map() {
 
   useEffect(() => {
     getMapData().then(data => {
-      if (data) setMapData(data)
+      if (data && data.features && data.features.length > 0) {
+        console.log(`Setting map data with ${data.features.length} features`)
+        setMapData(data)
+      } else {
+        console.warn("No map data or empty features array:", data)
+        setMapData(null)
+      }
     })
   }, [])
 
@@ -124,7 +136,7 @@ export default function Map() {
           </div>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             {/* You can pass selectedPolygon to Chat if you want it to know context */}
-            <Chat />
+            <Chat plotInfo={selectedPolygon} />
           </div>
         </div>
       )}
