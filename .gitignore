@@ -10,6 +10,7 @@ venv/
 /data/faiss_index/
 /data/faiss_index_code/
 /data/faiss_index_checklist/
+/data/opa_properties_public.csv
 
 # Large data files (exceed GitHub's 100MB limit)
 data/GSI_Planning_Parcels.csv
