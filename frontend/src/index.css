@@ -151,6 +151,104 @@ body {
   border-bottom-left-radius: 4px;
 }
 
+<<<<<<< HEAD
+=======
+/* Markdown styling for bot messages */
+.chat-message.bot .message-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.chat-message.bot .message-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 16px 0 8px 0;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.chat-message.bot .message-content h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.chat-message.bot .message-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 12px 0 6px 0;
+  color: #334155;
+}
+
+.chat-message.bot .message-content p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.chat-message.bot .message-content ul,
+.chat-message.bot .message-content ol {
+  margin: 8px 0;
+  padding-left: 24px;
+  line-height: 1.6;
+}
+
+.chat-message.bot .message-content li {
+  margin: 4px 0;
+}
+
+.chat-message.bot .message-content li p {
+  margin: 0;
+}
+
+.chat-message.bot .message-content strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.chat-message.bot .message-content hr {
+  border: none;
+  border-top: 1px solid #cbd5e1;
+  margin: 16px 0;
+}
+
+.chat-message.bot .message-content code {
+  background: rgba(15, 23, 42, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.chat-message.bot .message-content pre {
+  background: rgba(15, 23, 42, 0.05);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.chat-message.bot .message-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.chat-message.bot .message-content a {
+  color: #0f172a;
+  text-decoration: underline;
+  text-decoration-color: rgba(15, 23, 42, 0.3);
+  transition: text-decoration-color 0.2s;
+}
+
+.chat-message.bot .message-content a:hover {
+  text-decoration-color: #0f172a;
+}
+
+>>>>>>> refs/remotes/origin/main
 .chat-input-form {
   display: flex;
   gap: 8px;

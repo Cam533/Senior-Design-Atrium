@@ -7,7 +7,19 @@ geoalchemy2>=0.14.0
 sqlalchemy>=2.0.0
 fastapi[standard]>=0.104.0
 boto3>=1.26.0
+<<<<<<< HEAD
 pypdf>=3.10.0
+=======
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-community>=0.0.20
+langchain-core>=0.1.0
+# langchain-classic may need to be installed separately or use langchain-community retriever tools
+geopy>=2.4.0
+pyproj>=3.6.0
+requests>=2.31.0
+uvicorn[standard]>=0.24.0
+>>>>>>> refs/remotes/origin/main
 
 # ASGI server
 uvicorn[standard]>=0.22.0
