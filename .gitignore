@@ -28,3 +28,7 @@ data/GSI_Planning_Parcels.csv
 Thumbs.db
 .vscode/
 .idea/
+
+
+backend/.venv
+.venv
