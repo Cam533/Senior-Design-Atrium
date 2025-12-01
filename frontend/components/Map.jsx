@@ -25,10 +25,10 @@ const getMapData = async () => {
   }
 }
 
-function onMapClick(evt) {
-    const lat = evt.latlng ? evt.latlng.lat : evt.lat;
-    const lon = evt.latlng ? evt.latlng.lng : evt.lon;
-    const body = { lat, lon, radius_m: 100 };
+const onMapClick = (evt, map) => {
+    const lat = evt.latlng.lat
+    const lon = evt.latlng.lng
+    const body = { lat, lon, radius_m: 100 }
 
     fetch("http://localhost:8000/census_nearby", {
       method: "POST",
@@ -37,29 +37,28 @@ function onMapClick(evt) {
     })
       .then((r) => r.json())
       .then((data) => {
-        console.log("census_nearby:", data);
-        // render popup or sidebar using data.results
-        // Example: show first tract summary
+        console.log("census_nearby:", data)
         if (data.results && data.results.length) {
-          const first = data.results[0];
+          const first = data.results[0]
           const html = `
-            <div>
-              <strong>Tract:</strong> ${first.census_tract || "n/a"}<br/>
-              <strong>Parcels:</strong> ${first.parcel_count}<br/>
-              <strong>Mean Median Income:</strong> ${first.mean_median_income || "n/a"}<br/>
-              <strong>Mean Population:</strong> ${first.mean_population || "n/a"}
-            </div>`;
-          // show popup at clicked location (example using Leaflet)
-          L.popup().setLatLng([lat, lon]).setContent(html).openOn(mapInstance);
+            <div style="font-family: sans-serif;">
+              <strong>Census Tract:</strong> ${first.census_tract || "n/a"}<br/>
+              <strong>Parcels in area:</strong> ${first.parcel_count}<br/>
+              <strong>Median Income:</strong> $${first.mean_median_income ? Math.round(first.mean_median_income).toLocaleString() : "n/a"}<br/>
+              <strong>Population:</strong> ${first.mean_population ? Math.round(first.mean_population).toLocaleString() : "n/a"}<br/>
+              <strong>Median Age:</strong> ${first.mean_median_age ? Math.round(first.mean_median_age) : "n/a"}
+            </div>`
+          L.popup().setLatLng([lat, lon]).setContent(html).openOn(map)
         } else {
-          L.popup().setLatLng([lat, lon]).setContent("No parcels found nearby").openOn(mapInstance);
+          L.popup().setLatLng([lat, lon]).setContent("No parcels found nearby").openOn(map)
         }
       })
-      .catch((err) => console.error("census_nearby error", err));
-}
+      .catch((err) => console.error("census_nearby error", err))
+  }
 
 export default function Map() {
   const [mapData, setMapData] = useState(null)
+  const [mapInstance, setMapInstance] = useState(null)
   const center = [39.9526, -75.1652] // Philadelphia
   const [showChat, setShowChat] = useState(false) 
   const [selectedPolygon, setSelectedPolygon] = useState(null)
@@ -69,6 +68,17 @@ export default function Map() {
       if (data) setMapData(data)
     })
   }, [])
+
+  // Attach map click handler when mapInstance is available
+  useEffect(() => {
+    if (mapInstance) {
+      const handler = (evt) => onMapClick(evt, mapInstance)
+      mapInstance.on('click', handler)
+      return () => {
+        mapInstance.off('click', handler)
+      }
+    }
+  }, [mapInstance])
 
   // Define the polygons layer
   const plotPolygons = mapData ? (
@@ -100,7 +110,12 @@ export default function Map() {
       
       {/* Map Area */}
       <div style={{ flex: 1, position: 'relative' }}>
-        <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }}>
+        <MapContainer 
+          center={center} 
+          zoom={12} 
+          style={{ height: '100%', width: '100%' }}
+          whenCreated={setMapInstance}
+        >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

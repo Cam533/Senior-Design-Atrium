@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 import sys
 import os
 
@@ -9,10 +9,10 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.rag.query_rag import get_rag_response
+from access.db_access import get_db_engine
 
 app = FastAPI()
-DB_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DB_URL)
+engine = get_db_engine()
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -44,13 +44,14 @@ async def chat(request: ChatRequest):
 
 @app.post("/census_nearby")
 def census_nearby(req: NearbyRequest):
-    # might have to fix this based on etl cols 
+    # Query uses column names from ETL: tract_total_pop, tract_median_income, tract_median_age
     sql = text("""
     SELECT
       census_tract,
       count(*) AS parcel_count,
       avg(COALESCE(tract_median_income::double precision, NULL)) AS mean_median_income,
-      avg(COALESCE(tract_population::double precision, NULL)) AS mean_population
+      avg(COALESCE(tract_total_pop::double precision, NULL)) AS mean_population,
+      avg(COALESCE(tract_median_age::double precision, NULL)) AS mean_median_age
     FROM parcels_enriched
     WHERE geom IS NOT NULL
       AND ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)

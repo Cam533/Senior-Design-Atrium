@@ -2,9 +2,22 @@ import pandas as pd
 import requests
 import time
 import os
+import sys
 from typing import Dict, Optional
 import json
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv() 
+
+from sqlalchemy import text
+
+# Add parent directory to path to import access helpers
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from access.db_access import get_db_engine
+except ImportError:
+    print("Warning: Could not import db_access helper. Falling back to inline engine creation.")
+    get_db_engine = None
 
 CENSUS_API_KEY = "c50562fadf7bcd7d4989a392ccbf9c2333fc74d2" 
 OPA_DATA_FILE = "../../data/opa_properties_public.csv"
@@ -541,14 +554,10 @@ def _ensure_census_cols(df):
         df = df.rename(columns=rename_map)
     return df
 
-def save_enriched_outputs(df,
-                          s3_bucket=None,
-                          s3_key="data/philadelphia_parcels_enriched.parquet",
-                          db_url=None,
-                          pg_table="parcels_enriched"):
-    """Save enriched dataframe to S3 (parquet) and to Postgres/PostGIS table.
-    - s3_bucket: bucket name or None
-    - db_url: SQLAlchemy DATABASE_URL or None
+def save_enriched_outputs(df, pg_table="parcels_enriched"):
+    """Save enriched dataframe to Postgres/PostGIS table with geometry column.
+    Uses get_db_engine() from access.db_access to connect to RDS.
+    - pg_table: name of the target table (default: parcels_enriched)
     """
     # normalize census column names so backend SQL works
     df = _ensure_census_cols(df)
@@ -559,48 +568,51 @@ def save_enriched_outputs(df,
         df["__etl_lat"] = df[lat_col].astype(float)
         df["__etl_lon"] = df[lon_col].astype(float)
     else:
-        # attempt to use geometry columns if present (not implemented here)
         print("Warning: no lat/lon columns found in enriched dataframe. geom will not be created in Postgres.")
 
-    # save to S3
-    if s3_bucket:
-        s3_path = f"s3://{s3_bucket}/{s3_key}"
-        try:
-            df.to_parquet(s3_path, index=False)
-            print(f"Saved enriched parquet to {s3_path}")
-        except Exception as e:
-            print(f"Failed to write parquet to S3 ({s3_path}): {e}")
-
-    # save to Postgres/PostGIS
-    if db_url:
-        engine = create_engine(db_url)
+    # save to Postgres/PostGIS using db_access helper
+    try:
+        if get_db_engine:
+            engine = get_db_engine()
+        else:
+            # Fallback if helper not available
+            db_url = os.getenv("DATABASE_URL")
+            if not db_url:
+                print("No DATABASE_URL or RDS config found, skipping database save.")
+                return
+            from sqlalchemy import create_engine
+            engine = create_engine(db_url)
+        
         tmp_table = pg_table + "_tmp"
-        # pick columns to write: keep all but rename helper cols
         write_df = df.copy()
+        
         # write via pandas to_sql (replace)
-        try:
-            write_df.to_sql(tmp_table, engine, if_exists="replace", index=False)
-            with engine.begin() as conn:
-                # add geom column and populate from lon/lat if present
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
-                # ensure geom column exists
-                conn.execute(text(f"ALTER TABLE {tmp_table} DROP COLUMN IF EXISTS geom;"))
-                conn.execute(text(f"ALTER TABLE {tmp_table} ADD COLUMN geom geometry(Point,4326);"))
-                if "__etl_lon" in write_df.columns and "__etl_lat" in write_df.columns:
-                    conn.execute(text(f"""
-                        UPDATE {tmp_table}
-                        SET geom = ST_SetSRID(ST_MakePoint(CAST("__etl_lon" AS double precision),
-                                                           CAST("__etl_lat" AS double precision)), 4326)
-                        WHERE "__etl_lon" IS NOT NULL AND "__etl_lat" IS NOT NULL;
-                    """))
-                # create spatial index
-                conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_{pg_table}_geom_tmp ON {tmp_table} USING GIST (geom);"))
-                # atomically replace final table
-                conn.execute(text(f"DROP TABLE IF EXISTS {pg_table};"))
-                conn.execute(text(f"ALTER TABLE {tmp_table} RENAME TO {pg_table};"))
-            print(f"Wrote enriched table to Postgres table: {pg_table}")
-        except Exception as e:
-            print(f"Failed to write to Postgres ({db_url}): {e}")
+        write_df.to_sql(tmp_table, engine, if_exists="replace", index=False)
+        
+        with engine.begin() as conn:
+            # add geom column and populate from lon/lat if present
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+            # ensure geom column exists
+            conn.execute(text(f"ALTER TABLE {tmp_table} DROP COLUMN IF EXISTS geom;"))
+            conn.execute(text(f"ALTER TABLE {tmp_table} ADD COLUMN geom geometry(Point,4326);"))
+            if "__etl_lon" in write_df.columns and "__etl_lat" in write_df.columns:
+                conn.execute(text(f"""
+                    UPDATE {tmp_table}
+                    SET geom = ST_SetSRID(ST_MakePoint(CAST("__etl_lon" AS double precision),
+                                                       CAST("__etl_lat" AS double precision)), 4326)
+                    WHERE "__etl_lon" IS NOT NULL AND "__etl_lat" IS NOT NULL;
+                """))
+            # create spatial index
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_{pg_table}_geom_tmp ON {tmp_table} USING GIST (geom);"))
+            # atomically replace final table
+            conn.execute(text(f"DROP TABLE IF EXISTS {pg_table};"))
+            conn.execute(text(f"ALTER TABLE {tmp_table} RENAME TO {pg_table};"))
+        
+        print(f"✓ Wrote enriched table to Postgres table: {pg_table}")
+    except Exception as e:
+        print(f"✗ Failed to write to Postgres: {e}")
+        import traceback
+        traceback.print_exc()
 
 def main():
     """Run the complete ETL pipeline"""
@@ -666,9 +678,7 @@ def main():
         print(f"\n⚠️  This was a SAMPLE run with {SAMPLE_SIZE:,} properties")
         print("To process all properties, set SAMPLE_SIZE = None and run again")
     
-    save_enriched_outputs(final_df,
-                      s3_bucket=os.getenv("S3_BUCKET"),
-                      db_url=os.getenv("DATABASE_URL"),
-                      pg_table="parcels_enriched")
+    # Save enriched data to RDS/PostGIS
+    save_enriched_outputs(final_df, pg_table="parcels_enriched")
 if __name__ == "__main__":
     main()
