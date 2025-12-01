@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 const API_URL = 'http://localhost:8000/chat'
 
@@ -88,7 +89,13 @@ export default function Chat() {
       <div className="chat-messages">
         {messages.map((msg) => (
           <div key={msg.id} className={`chat-message ${msg.sender}`}>
-            <div className="message-content">{msg.text}</div>
+            <div className="message-content">
+              {msg.sender === 'bot' ? (
+                <ReactMarkdown>{msg.text}</ReactMarkdown>
+              ) : (
+                msg.text
+              )}
+            </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
