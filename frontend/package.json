@@ -12,10 +12,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-leaflet": "^4.2.1",
-<<<<<<< HEAD
-=======
     "react-markdown": "^10.1.0",
->>>>>>> refs/remotes/origin/main
     "react-router-dom": "^7.9.6"
   },
   "devDependencies": {

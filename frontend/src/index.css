@@ -151,8 +151,6 @@ body {
   border-bottom-left-radius: 4px;
 }
 
-<<<<<<< HEAD
-=======
 /* Markdown styling for bot messages */
 .chat-message.bot .message-content h1 {
   font-size: 1.5rem;
@@ -248,7 +246,6 @@ body {
   text-decoration-color: #0f172a;
 }
 
->>>>>>> refs/remotes/origin/main
 .chat-input-form {
   display: flex;
   gap: 8px;
