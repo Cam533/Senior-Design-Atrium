@@ -6,6 +6,7 @@ const API_URL = 'http://localhost:8000/chat'
 const initialMessages = [
   { id: 1, text: "Hello! How can I help you with Philadelphia development questions?", sender: 'bot' }
 ]
+const STORAGE_KEY = 'atrium_chat_messages_v1'
 
 const callChat = async (message) => {
   const response = await fetch(API_URL, {
@@ -22,8 +23,24 @@ const callChat = async (message) => {
 }
 
 export default function Chat() {
-  const [messages, setMessages] = useState(initialMessages)
-  const [inputValue, setInputValue] = useState('')
+  const [messages, setMessages] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) return JSON.parse(raw)
+    } catch (e) {
+      console.warn('Failed to parse stored chat messages:', e)
+    }
+    return initialMessages
+  })
+  const [inputValue, setInputValue] = useState(() => {
+    try {
+      const raw = localStorage.getItem(`${STORAGE_KEY}_input`)
+      if (raw) return JSON.parse(raw)
+    } catch (e) {
+      /* ignore */
+    }
+    return ''
+  })
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef(null)
 
@@ -34,6 +51,23 @@ export default function Chat() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Persist messages (and input) to localStorage when they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages))
+    } catch (e) {
+      console.warn('Failed to save chat messages to localStorage:', e)
+    }
+  }, [messages])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_input`, JSON.stringify(inputValue))
+    } catch (e) {
+      /* ignore */
+    }
+  }, [inputValue])
 
   const handleSend = async (e) => {
     e.preventDefault()

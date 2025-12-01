@@ -28,7 +28,12 @@ body {
   padding: 0 16px;
   background: #0f172a;
   box-shadow: 0 2px 6px rgba(11,15,25,0.12);
-  z-index: 10;
+  z-index: 1000;
+  /* Keep the topbar fixed/sticky and prevent it from shrinking when content scrolls */
+  position: sticky;
+  top: 0;
+  flex: 0 0 56px;
+  flex-shrink: 0;
 }
 
 .brand {
