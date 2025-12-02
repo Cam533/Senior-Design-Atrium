@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.rag.query_rag import get_rag_response
+from models.geographic_scoring import score_location
 from access.db_access import get_db_engine
 
 app = FastAPI()
@@ -92,3 +93,8 @@ def map_geojson():
 
     out = {"type": "FeatureCollection", "features": features}
     return JSONResponse(content=out)
+
+@app.post("/geographic_scores")
+def geographic_scores(req: NearbyRequest):
+    scores = score_location(req.lat, req.lon)
+    return scores
