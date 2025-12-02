@@ -51,7 +51,8 @@ except Exception as e:
 
 def load_geojson_addresses():
     """Load all addresses from the GeoJSON files (clickable in UI)"""
-    base_dir = Path(__file__).parent
+    # Go up two levels from models/census to project root, then into data/
+    base_dir = Path(__file__).resolve().parents[2]
     data_dir = base_dir / "data"
     
     geojson_files = [
@@ -281,6 +282,22 @@ def main():
         print("\nMatch type breakdown:")
         for mt, count in match_types.items():
             print(f"  {mt}: {count} ({count/len(matches)*100:.1f}%)")
+        
+        # Show 5 random clickable addresses with census data
+        print("\n" + "=" * 70)
+        print("5 CLICKABLE ADDRESSES WITH CENSUS DATA (try these in the UI!):")
+        print("=" * 70)
+        import random
+        sample = random.sample(matches, min(5, len(matches)))
+        for i, addr in enumerate(sample, 1):
+            print(f"\n{i}. {addr['address']}")
+            print(f"   Coordinates: ({addr['lat']:.6f}, {addr['lon']:.6f})")
+            if addr.get('category'):
+                print(f"   Property Type: {addr['category']}")
+            if addr.get('median_income'):
+                print(f"   Tract Median Income: ${int(addr['median_income']):,}")
+            if addr.get('population'):
+                print(f"   Tract Population: {int(addr['population']):,}")
     else:
         print("\n⚠️  No matches found!")
         print("This means the addresses in your GeoJSON files don't match")
