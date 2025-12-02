@@ -7,4 +7,25 @@ geoalchemy2>=0.14.0
 sqlalchemy>=2.0.0
 fastapi[standard]>=0.104.0
 boto3>=1.26.0
+pypdf>=3.10.0
 
+# ASGI server
+uvicorn[standard]>=0.22.0
+
+# LLM / RAG dependencies
+openai>=0.27.0
+langchain>=0.0.268
+langchain-core>=0.0.1
+langchain-community>=0.0.1
+langchain-openai>=0.0.1
+langchain-text-splitters>=0.0.1
+langchain-classic>=0.0.1
+tiktoken>=0.4.0
+faiss-cpu>=1.7.4
+
+# Useful utilities for RAG and geocoding
+geopy>=2.3.0
+requests>=2.31.0
+pyproj>=3.6.0
+shapely>=2.0.1
+fiona>=1.9.0

@@ -4,11 +4,15 @@ from pydantic import BaseModel
 from sqlalchemy import text
 import sys
 import os
+import json
+from fastapi.responses import JSONResponse
+from pathlib import Path
 
 # Add parent directory to path so we can import models
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.rag.query_rag import get_rag_response
+from models.geographic_scoring import score_location
 from access.db_access import get_db_engine
 
 app = FastAPI()
@@ -61,3 +65,36 @@ def census_nearby(req: NearbyRequest):
     with engine.connect() as conn:
         rows = conn.execute(sql, {"lon": req.lon, "lat": req.lat, "radius": req.radius_m}).mappings().all()
     return {"results": [dict(r) for r in rows]}
+
+
+@app.get("/map")
+def map_geojson():
+    """Return combined GeoJSON from data/Vacant_Indicators_Land.geojson and Vacant_Indicators_Bldg.geojson.
+    Falls back to an empty FeatureCollection if files are missing or invalid.
+    """
+    base = Path(__file__).resolve().parents[1]
+    data_dir = base / "data"
+    files = [data_dir / "Vacant_Indicators_Land.geojson", data_dir / "Vacant_Indicators_Bldg.geojson"]
+
+    features = []
+    for f in files:
+        try:
+            with open(f, "r", encoding="utf-8") as fh:
+                gj = json.load(fh)
+                # GeoJSON could be FeatureCollection or a single Feature
+                if gj.get("type") == "FeatureCollection":
+                    feats = gj.get("features", [])
+                    features.extend(feats)
+                elif gj.get("type") == "Feature":
+                    features.append(gj)
+        except Exception:
+            # If a file is missing or invalid, skip it
+            continue
+
+    out = {"type": "FeatureCollection", "features": features}
+    return JSONResponse(content=out)
+
+@app.post("/geographic_scores")
+def geographic_scores(req: NearbyRequest):
+    scores = score_location(req.lat, req.lon)
+    return scores

@@ -1,145 +1,96 @@
 # Data Files Description
 
-This document describes each data file in the `/data` directory and their relevance to open space, parks, and recreational land uses.
+Overview of data files in the `/data` directory and their use for open space, parks, and recreational land analysis.
 
-## Parks and Recreation Data (PPR = Philadelphia Parks & Recreation)
+## Parks and Recreation Data
 
-### 1. **PPR_Properties.csv** ✅
-- **Purpose**: Contains all Philadelphia Parks & Recreation properties
-- **Key Fields**: 
-  - Park names, addresses, zip codes
-  - Property classifications (PARK, PATHWAY, etc.)
-  - PPR use types (GREENWAY, RECREATION_SITE, NEIGHBORHOOD_PARK, SQUARE_PLAZA)
-  - Acreage, council districts, police districts
-- **Relevance**: **Directly relevant** - This is the main dataset for parks and recreational properties
-- **Records**: ~505 properties
+### PPR_Properties.csv
 
-### 2. **PPR_Trails.csv** ✅
-- **Purpose**: Contains trail information managed by Philadelphia Parks & Recreation
-- **Key Fields**:
-  - Trail names, types (MAJOR), surfaces (HARD)
-  - Trail systems (WEST_FAIRMOUNT, WISSAHICKON, EAST_FAIRMOUNT)
-  - Access types (pedestrian, bike, horse)
-  - Circuit trail designations (Schuylkill River Trail, etc.)
-  - Miles, status (EXISTING)
-- **Relevance**: **Directly relevant** - Trails are recreational open space
-- **Records**: ~1,888 trails
+Contains all Philadelphia Parks & Recreation properties. Includes park names, addresses, zip codes, property classifications (PARK, PATHWAY, CONSERVATION), PPR use types (GREENWAY, RECREATION_SITE, NEIGHBORHOOD_PARK, SQUARE_PLAZA), acreage, council districts, and police districts. About 505 properties.
 
-### 3. **Existing_Trails.csv** ✅
-- **Purpose**: Contains existing trail data with detailed specifications
-- **Key Fields**:
-  - Trail types (Designated), materials (Asphalt)
-  - Width, paved status, mileage
-  - Trail names (e.g., Boxer's Trail)
-- **Relevance**: **Directly relevant** - Additional trail data for recreational use
-- **Records**: ~340 trails
+### PPR_Trails.csv
 
-### 4. **PPR_Program_Sites.csv** ✅
-- **Purpose**: Contains recreation centers and program sites
-- **Key Fields**:
-  - Park/recreation center names
-  - Program types (PPR_REC)
-  - Site classes, building presence, gym availability
-  - Coordinates (X, Y)
-- **Relevance**: **Directly relevant** - Recreation centers are part of recreational infrastructure
-- **Records**: ~172 program sites
+Trail information managed by Philadelphia Parks & Recreation. Fields include trail names, types (MAJOR, MINOR, CONNECTOR), surfaces (HARD, SOFT), trail systems (WEST_FAIRMOUNT, WISSAHICKON, EAST_FAIRMOUNT), access types (pedestrian, bike, horse), circuit trail designations, mileage, and status. About 1,888 trail segments.
 
-### 5. **PPR_Districts_2018.csv** ✅
-- **Purpose**: Contains PPR administrative district boundaries
-- **Key Fields**:
-  - District IDs (1, 2, 3, 4)
-  - District labels
-  - Shape areas and lengths (geographic boundaries)
-- **Relevance**: **Relevant** - Administrative boundaries for organizing park data
-- **Records**: 11 districts
+### Existing_Trails.csv
 
-### 6. **ppr_tree_inventory_2024.csv** ✅
-- **Purpose**: Tree inventory in Philadelphia parks
-- **Key Fields**:
-  - Tree species names (e.g., ACER PLATANOIDES - NORWAY MAPLE)
-  - Tree diameter at breast height (DBH)
-  - Year, coordinates (loc_x, loc_y)
-- **Relevance**: **Relevant** - Trees are part of open space and park infrastructure
-- **Records**: ~151,714 trees
+Additional trail data with detailed specifications. Includes trail types (Designated), materials (Asphalt), width, paved status, and mileage. Trail names include Boxer's Trail, Centennial Loop, and others. About 340 trail segments.
 
-### 7. **Registered_Community_Gardens.csv** ✅
-- **Purpose**: Community gardens registered in Philadelphia
-- **Key Fields**:
-  - Garden names, park names, addresses
-  - Contact information, websites
-  - Hours of operation, garden status (ACTIVE)
-  - PPR land designation, council districts
-- **Relevance**: **Directly relevant** - Community gardens are recreational/open space uses
-- **Records**: ~22 gardens
+### PPR_Program_Sites.csv
+
+Recreation centers and program sites. Contains park and recreation center names, program types (PPR_REC), site classes, building presence, gym availability, and coordinates (X, Y). About 172 program sites.
+
+### PPR_Districts_2018.csv
+
+PPR administrative district boundaries. Includes district IDs (1-11), district labels, and shape areas/lengths for geographic boundaries. Used for organizing park data by administrative regions.
+
+### ppr_tree_inventory_2024.csv
+
+Tree inventory for Philadelphia parks. Contains tree species names (e.g., ACER PLATANOIDES - NORWAY MAPLE), diameter at breast height (DBH), year, and coordinates (loc_x, loc_y). About 151,714 trees.
+
+### Registered_Community_Gardens.csv
+
+Community gardens registered in Philadelphia. Includes garden names, associated park names, addresses, contact information, websites, hours of operation, garden status (ACTIVE), PPR land designation, and council districts. About 22 gardens.
 
 ## Land Use Data
 
-### 8. **Land_Use (1).csv** ✅
-- **Purpose**: City-wide land use classification for all parcels in Philadelphia
-- **Key Fields**:
-  - Land use codes: `c_dig1` (primary) and `c_dig1desc` (description)
-  - **Code 5 = "Cultural/Recreation"** - Recreational land uses
-  - **Code 8 = "Open Space"** - Open space land uses
-  - Shape areas and lengths (geographic data)
-  - Year (2023)
-- **Relevance**: **Directly relevant** - Contains open space (code 8) and cultural/recreation (code 5) categories
-- **Records**: ~559,738 parcels
-- **Note**: Based on `contextual_recommendations.py`, the land use codes are:
-  - 1: Residential
-  - 2: Commercial
-  - 3: Industrial
-  - 4: Transportation
-  - **5: Cultural/Recreation** ⭐
-  - 6: Utilities
-  - 7: Institutional
-  - **8: Open Space** ⭐
-  - 9: Vacant
-  - 10: Water
+### Land_Use (1).csv
 
-## Other Data
+City-wide land use classification for all parcels in Philadelphia. Primary fields are `c_dig1` (land use code) and `c_dig1desc` (description). Includes shape areas and lengths for geographic data. Year is 2023.
 
-### 9. **Vacant_Block_Percent_Building.csv**
-- **Purpose**: Vacant building statistics by block
-- **Key Fields**: Parcel counts, building vacancy counts and percentages
-- **Relevance**: **Not directly relevant** - This is about vacant buildings, not parks/recreation
-- **Records**: ~22,723 blocks
+Land use codes:
 
-### 10. **philadelphia-pa-1.txt**
-- **Purpose**: Philadelphia Home Rule Charter text document
-- **Relevance**: **Not relevant** - Legal document, not spatial/recreational data
-- **Size**: ~152,719 lines
+- 1: Residential
+- 2: Commercial
+- 3: Industrial
+- 4: Transportation
+- 5: Cultural/Recreation
+- 6: Utilities
+- 7: Institutional
+- 8: Open Space
+- 9: Vacant
+- 10: Water
 
-### 11. **Development_Checklist-July-2024.pdf**
-- **Purpose**: Development checklist document
-- **Relevance**: **Unknown** - PDF file, would need to examine contents
+For open space and recreation analysis, filter for codes 5 (Cultural/Recreation) and 8 (Open Space). About 559,738 parcels total.
 
----
+## Other Data Files
 
-## Summary
+### Vacant_Block_Percent_Building.csv
 
-**✅ Directly Relevant to Open Space, Parks, and Recreational Land Uses:**
-1. PPR_Properties.csv - All PPR properties
-2. PPR_Trails.csv - PPR trails
-3. Existing_Trails.csv - Additional trail data
-4. PPR_Program_Sites.csv - Recreation centers
-5. Registered_Community_Gardens.csv - Community gardens
-6. Land_Use (1).csv - Contains codes 5 (Cultural/Recreation) and 8 (Open Space)
+Vacant building statistics by block. Contains parcel counts, building vacancy counts and percentages. Not directly related to parks or recreation. About 22,723 blocks.
 
-**✅ Relevant (Supporting Data):**
-7. PPR_Districts_2018.csv - Administrative boundaries
-8. ppr_tree_inventory_2024.csv - Park trees
+### philadelphia-pa-1.txt
 
-**❌ Not Relevant:**
-9. Vacant_Block_Percent_Building.csv - Vacant building data
-10. philadelphia-pa-1.txt - Legal charter document
-11. Development_Checklist-July-2024.pdf - Unknown content
+Philadelphia Home Rule Charter text document. Legal document, not spatial or recreational data. About 152,719 lines.
 
-## Recommendation
+### Development_Checklist-July-2024.pdf
 
-For analyzing open space, parks, and recreational land uses, focus on:
-- **Land_Use (1).csv** filtered for codes 5 and 8
-- **PPR_Properties.csv** for all park properties
-- **PPR_Trails.csv** and **Existing_Trails.csv** for trail networks
-- **PPR_Program_Sites.csv** for recreation centers
-- **Registered_Community_Gardens.csv** for community gardens
+Development checklist document. PDF format, contents not examined in detail.
 
+### philadelphia_parcels_enriched.csv
+
+Enriched parcel data with census tract information, geocoding, and demographic data. Used for contextual analysis of properties.
+
+### Vacant_Indicators_Bldg.geojson
+
+GeoJSON file containing vacant building indicators with geographic boundaries.
+
+### Vacant_Indicators_Land.geojson
+
+GeoJSON file containing vacant land indicators with geographic boundaries.
+
+## Primary Data Sources for Analysis
+
+For open space, parks, and recreational land use analysis, the main datasets are:
+
+1. **Land_Use (1).csv** - Filter for codes 5 (Cultural/Recreation) and 8 (Open Space)
+2. **PPR_Properties.csv** - All park properties
+3. **PPR_Trails.csv** and **Existing_Trails.csv** - Trail networks
+4. **PPR_Program_Sites.csv** - Recreation centers
+5. **Registered_Community_Gardens.csv** - Community gardens
+6. **ppr_tree_inventory_2024.csv** - Park tree inventory for environmental metrics
+
+Supporting data:
+
+- **PPR_Districts_2018.csv** - Administrative boundaries for organizing data
+- **philadelphia_parcels_enriched.csv** - Contextual demographic data
