@@ -12,6 +12,7 @@ _trees_df = None
 _gardens_df = None
 _program_sites_df = None
 
+
 def _load_data():
     global _parks_df, _trails_df, _trees_df, _gardens_df, _program_sites_df
     if _parks_df is None:
@@ -22,47 +23,51 @@ def _load_data():
         _program_sites_df = pd.read_csv(os.path.join(DATA_DIR, "PPR_Program_Sites.csv"))
     return _parks_df, _trails_df, _trees_df, _gardens_df, _program_sites_df
 
+
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     if pd.isna(lat1) or pd.isna(lon1) or pd.isna(lat2) or pd.isna(lon2):
         return float('inf')
     return geodesic((lat1, lon1), (lat2, lon2)).meters
 
-def score_parks_proximity(lat: float, lon: float, parks_df: pd.DataFrame, 
-                         gardens_df: pd.DataFrame, program_sites_df: pd.DataFrame) -> float:
+
+def score_parks_proximity(
+    lat: float, lon: float, parks_df: pd.DataFrame,
+    gardens_df: pd.DataFrame, program_sites_df: pd.DataFrame
+) -> float:
     min_dist = float('inf')
     park_count_500m = 0
     park_count_1000m = 0
     total_acreage_1000m = 0
     
-    for idx, row in program_sites_df.iterrows():
-        if pd.notna(row.get('Y')) and pd.notna(row.get('X')):
-            site_lat, site_lon = row['Y'], row['X']
-            dist = calculate_distance(lat, lon, site_lat, site_lon)
-            if dist < min_dist:
-                min_dist = dist
-            if dist <= 500:
-                park_count_500m += 1
-            if dist <= 1000:
-                park_count_1000m += 1
+    if 'Y' in program_sites_df.columns and 'X' in program_sites_df.columns:
+        sites_valid = program_sites_df[(program_sites_df['Y'].notna()) & (program_sites_df['X'].notna())]
+        if len(sites_valid) > 0:
+            sites_valid = sites_valid.copy()
+            sites_valid['dist'] = sites_valid.apply(
+                lambda row: calculate_distance(lat, lon, row['Y'], row['X']), 
+                axis=1
+            )
+            min_dist = min(min_dist, sites_valid['dist'].min())
+            park_count_500m += len(sites_valid[sites_valid['dist'] <= 500])
+            park_count_1000m += len(sites_valid[sites_valid['dist'] <= 1000])
     
-    for idx, row in gardens_df.iterrows():
-        if pd.notna(row.get('Y')) and pd.notna(row.get('X')):
-            garden_lat, garden_lon = row['Y'], row['X']
-            dist = calculate_distance(lat, lon, garden_lat, garden_lon)
-            if dist < min_dist:
-                min_dist = dist
-            if dist <= 500:
-                park_count_500m += 1
-            if dist <= 1000:
-                park_count_1000m += 1
+    if 'Y' in gardens_df.columns and 'X' in gardens_df.columns:
+        gardens_valid = gardens_df[(gardens_df['Y'].notna()) & (gardens_df['X'].notna())]
+        if len(gardens_valid) > 0:
+            gardens_valid = gardens_valid.copy()
+            gardens_valid['dist'] = gardens_valid.apply(
+                lambda row: calculate_distance(lat, lon, row['Y'], row['X']), 
+                axis=1
+            )
+            min_dist = min(min_dist, gardens_valid['dist'].min())
+            park_count_500m += len(gardens_valid[gardens_valid['dist'] <= 500])
+            park_count_1000m += len(gardens_valid[gardens_valid['dist'] <= 1000])
     
-    for idx, row in parks_df.iterrows():
-        zip_code = str(row.get('zip_code', ''))
-        if zip_code and zip_code.isdigit():
-            acreage = row.get('acreage', 0)
-            if pd.notna(acreage) and acreage > 0:
-                park_count_1000m += 0.3
-                total_acreage_1000m += acreage * 0.3
+    if 'acreage' in parks_df.columns:
+        parks_with_acreage = parks_df[(parks_df['acreage'].notna()) & (parks_df['acreage'] > 0)]
+        if len(parks_with_acreage) > 0:
+            park_count_1000m += len(parks_with_acreage) * 0.3
+            total_acreage_1000m += parks_with_acreage['acreage'].sum() * 0.3
     
     if min_dist == float('inf'):
         return 0.0
@@ -72,6 +77,7 @@ def score_parks_proximity(lat: float, lon: float, parks_df: pd.DataFrame,
     size_score = min(5, total_acreage_1000m / 10)
     
     return min(10, proximity_score + density_score + size_score)
+
 
 def score_trails_proximity(lat: float, lon: float, trails_df: pd.DataFrame) -> float:
     trail_length_500m = 0
@@ -96,26 +102,30 @@ def score_trails_proximity(lat: float, lon: float, trails_df: pd.DataFrame) -> f
     
     return min(10, proximity_score + length_score + count_score)
 
+
 def score_tree_density(lat: float, lon: float, trees_df: pd.DataFrame) -> float:
-    tree_count_200m = 0
-    tree_count_500m = 0
-    total_dbh_500m = 0
+    trees_valid = trees_df[(trees_df['loc_y'].notna()) & (trees_df['loc_x'].notna())].copy()
     
-    for idx, row in trees_df.iterrows():
-        if pd.notna(row.get('loc_y')) and pd.notna(row.get('loc_x')):
-            tree_lat, tree_lon = row['loc_y'], row['loc_x']
-            dist = calculate_distance(lat, lon, tree_lat, tree_lon)
-            
-            if dist <= 200:
-                tree_count_200m += 1
-                dbh = row.get('tree_dbh', 0)
-                if pd.notna(dbh):
-                    total_dbh_500m += dbh
-            elif dist <= 500:
-                tree_count_500m += 1
-                dbh = row.get('tree_dbh', 0)
-                if pd.notna(dbh):
-                    total_dbh_500m += dbh
+    if len(trees_valid) == 0:
+        return 0.0
+    
+    lat_diff = np.radians(trees_valid['loc_y'].values - lat)
+    lon_diff = np.radians(trees_valid['loc_x'].values - lon)
+    
+    a = np.sin(lat_diff/2)**2 + np.cos(np.radians(lat)) * np.cos(np.radians(trees_valid['loc_y'].values)) * np.sin(lon_diff/2)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    dists = 6371000 * c
+    
+    trees_valid['dist'] = dists
+    
+    trees_200m = trees_valid[trees_valid['dist'] <= 200]
+    trees_500m = trees_valid[trees_valid['dist'] <= 500]
+    
+    tree_count_200m = len(trees_200m)
+    tree_count_500m = len(trees_500m)
+    
+    dbh_500m = trees_500m['tree_dbh'].fillna(0)
+    total_dbh_500m = dbh_500m.sum()
     
     density_score = min(5, tree_count_200m / 10)
     coverage_score = min(3, tree_count_500m / 20)
@@ -123,9 +133,12 @@ def score_tree_density(lat: float, lon: float, trees_df: pd.DataFrame) -> float:
     
     return min(10, density_score + coverage_score + maturity_score)
 
-def score_environmental_friendliness(lat: float, lon: float, parks_df: pd.DataFrame, 
-                                    trails_df: pd.DataFrame, trees_df: pd.DataFrame, 
-                                    gardens_df: pd.DataFrame, program_sites_df: pd.DataFrame) -> float:
+
+def score_environmental_friendliness(
+    lat: float, lon: float, parks_df: pd.DataFrame,
+    trails_df: pd.DataFrame, trees_df: pd.DataFrame,
+    gardens_df: pd.DataFrame, program_sites_df: pd.DataFrame
+) -> float:
     park_score = score_parks_proximity(lat, lon, parks_df, gardens_df, program_sites_df)
     trail_score = score_trails_proximity(lat, lon, trails_df)
     tree_score = score_tree_density(lat, lon, trees_df)
@@ -133,61 +146,80 @@ def score_environmental_friendliness(lat: float, lon: float, parks_df: pd.DataFr
     weighted_score = (park_score * 0.4) + (trail_score * 0.3) + (tree_score * 0.3)
     return round(weighted_score, 2)
 
-def score_recreational_access(lat: float, lon: float, parks_df: pd.DataFrame, 
-                              trails_df: pd.DataFrame, program_sites_df: pd.DataFrame) -> float:
+
+def score_recreational_access(
+    lat: float, lon: float, parks_df: pd.DataFrame,
+    trails_df: pd.DataFrame, program_sites_df: pd.DataFrame
+) -> float:
     park_score = score_parks_proximity(lat, lon, parks_df, pd.DataFrame(), program_sites_df)
     trail_score = score_trails_proximity(lat, lon, trails_df)
     
     weighted_score = (park_score * 0.6) + (trail_score * 0.4)
     return round(weighted_score, 2)
 
-def score_green_space_quality(lat: float, lon: float, parks_df: pd.DataFrame, 
-                              trees_df: pd.DataFrame, gardens_df: pd.DataFrame, 
-                              program_sites_df: pd.DataFrame) -> float:
+
+def score_green_space_quality(
+    lat: float, lon: float, parks_df: pd.DataFrame,
+    trees_df: pd.DataFrame, gardens_df: pd.DataFrame,
+    program_sites_df: pd.DataFrame
+) -> float:
     park_score = score_parks_proximity(lat, lon, parks_df, gardens_df, program_sites_df)
     tree_score = score_tree_density(lat, lon, trees_df)
     
     garden_count_500m = 0
-    for idx, row in gardens_df.iterrows():
-        if pd.notna(row.get('Y')) and pd.notna(row.get('X')):
-            garden_lat, garden_lon = row['Y'], row['X']
-            dist = calculate_distance(lat, lon, garden_lat, garden_lon)
-            if dist <= 500:
-                garden_count_500m += 1
+    if 'Y' in gardens_df.columns and 'X' in gardens_df.columns:
+        gardens_valid = gardens_df[(gardens_df['Y'].notna()) & (gardens_df['X'].notna())]
+        if len(gardens_valid) > 0:
+            gardens_valid = gardens_valid.copy()
+            gardens_valid['dist'] = gardens_valid.apply(
+                lambda row: calculate_distance(lat, lon, row['Y'], row['X']), 
+                axis=1
+            )
+            garden_count_500m = len(gardens_valid[gardens_valid['dist'] <= 500])
     
     garden_score = min(3, garden_count_500m * 1.5)
     
     weighted_score = (park_score * 0.5) + (tree_score * 0.4) + (garden_score * 0.1)
     return round(weighted_score, 2)
 
-def score_walkability(lat: float, lon: float, parks_df: pd.DataFrame, 
-                     trails_df: pd.DataFrame, gardens_df: pd.DataFrame, 
-                     program_sites_df: pd.DataFrame) -> float:
+
+def score_walkability(
+    lat: float, lon: float, parks_df: pd.DataFrame,
+    trails_df: pd.DataFrame, gardens_df: pd.DataFrame,
+    program_sites_df: pd.DataFrame
+) -> float:
     park_count_800m = 0
-    trail_count_800m = 0
+    if 'Y' in program_sites_df.columns and 'X' in program_sites_df.columns:
+        sites_valid = program_sites_df[(program_sites_df['Y'].notna()) & (program_sites_df['X'].notna())]
+        if len(sites_valid) > 0:
+            sites_valid = sites_valid.copy()
+            sites_valid['dist'] = sites_valid.apply(
+                lambda row: calculate_distance(lat, lon, row['Y'], row['X']), 
+                axis=1
+            )
+            park_count_800m = len(sites_valid[sites_valid['dist'] <= 800])
+    
     garden_count_800m = 0
+    if 'Y' in gardens_df.columns and 'X' in gardens_df.columns:
+        gardens_valid = gardens_df[(gardens_df['Y'].notna()) & (gardens_df['X'].notna())]
+        if len(gardens_valid) > 0:
+            gardens_valid = gardens_valid.copy()
+            gardens_valid['dist'] = gardens_valid.apply(
+                lambda row: calculate_distance(lat, lon, row['Y'], row['X']), 
+                axis=1
+            )
+            garden_count_800m = len(gardens_valid[gardens_valid['dist'] <= 800])
     
-    for idx, row in program_sites_df.iterrows():
-        if pd.notna(row.get('Y')) and pd.notna(row.get('X')):
-            site_lat, site_lon = row['Y'], row['X']
-            dist = calculate_distance(lat, lon, site_lat, site_lon)
-            if dist <= 800:
-                park_count_800m += 1
-    
-    for idx, row in gardens_df.iterrows():
-        if pd.notna(row.get('Y')) and pd.notna(row.get('X')):
-            garden_lat, garden_lon = row['Y'], row['X']
-            dist = calculate_distance(lat, lon, garden_lat, garden_lon)
-            if dist <= 800:
-                garden_count_800m += 1
-    
-    major_trails = trails_df[trails_df.get('TRAIL_TYPE', '') == 'MAJOR']
-    trail_count_800m = len(major_trails) * 0.2
+    trail_count_800m = 0
+    if 'TRAIL_TYPE' in trails_df.columns:
+        major_trails = trails_df[trails_df['TRAIL_TYPE'] == 'MAJOR']
+        trail_count_800m = len(major_trails) * 0.2
     
     total_destinations = park_count_800m + trail_count_800m + garden_count_800m
     walkability_score = min(10, total_destinations * 1.5)
     
     return round(walkability_score, 2)
+
 
 def calculate_all_scores(lat: float, lon: float) -> Dict[str, float]:
     parks_df, trails_df, trees_df, gardens_df, program_sites_df = _load_data()
@@ -203,6 +235,7 @@ def calculate_all_scores(lat: float, lon: float) -> Dict[str, float]:
         'green_space_score': green_quality,
         'walkability_score': walkability
     }
+
 
 def score_location(lat: float, lon: float) -> Dict[str, float]:
     return calculate_all_scores(lat, lon)
