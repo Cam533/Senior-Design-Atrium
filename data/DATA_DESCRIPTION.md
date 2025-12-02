@@ -53,6 +53,24 @@ Land use codes:
 
 For open space and recreation analysis, filter for codes 5 (Cultural/Recreation) and 8 (Open Space). About 559,738 parcels total.
 
+## Transportation and Infrastructure Data
+
+### Transit*Stops*(Spring_2025).csv
+
+Public transit stops for Spring 2025. Contains stop coordinates (X, Y, Lat, Lon), stop names, line abbreviations, directions, and stop IDs. Includes bus, trolley, and other transit stops. About 22,479 stops.
+
+### Bike_Network.csv
+
+Bike network infrastructure. Contains bike lane segments with street names, lane types (Paint Buffered, Separated Bike Lane, Conventional), classes, and segment lengths. About 5,226 bike lane segments.
+
+### CompleteStreets.csv
+
+Complete streets data with comprehensive street infrastructure information. Includes sidewalk indicators (SIDEWALK_I), sidewalk width (SIDEWLK_WD), bike network facilities (BIKENETWOR), parking, street types, speed limits, and segment lengths. About 40,660 street segments.
+
+### mini_city_halls.csv
+
+Mini city halls and community centers. Contains facility names, addresses, community manager contacts, and coordinates (X, Y). About 13 locations.
+
 ## Other Data Files
 
 ### Vacant_Block_Percent_Building.csv
@@ -89,6 +107,10 @@ For open space, parks, and recreational land use analysis, the main datasets are
 4. **PPR_Program_Sites.csv** - Recreation centers
 5. **Registered_Community_Gardens.csv** - Community gardens
 6. **ppr_tree_inventory_2024.csv** - Park tree inventory for environmental metrics
+7. **Transit*Stops*(Spring_2025).csv** - Transit accessibility
+8. **Bike_Network.csv** - Bike infrastructure
+9. **CompleteStreets.csv** - Sidewalk and pedestrian infrastructure
+10. **mini_city_halls.csv** - Community services
 
 Supporting data:
 

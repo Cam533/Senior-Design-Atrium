@@ -11,7 +11,12 @@ from pathlib import Path
 # Add parent directory to path so we can import models
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models.rag.query_rag import get_rag_response
+try:
+    from models.rag.query_rag import get_rag_response
+except (ImportError, ValueError, RuntimeError, FileNotFoundError) as e:
+    def get_rag_response(message: str) -> str:
+        return "RAG system not available. Please build vectorstore first by running: python models/rag/build_vectorstore.py"
+
 from models.geographic_scoring import score_location
 from access.db_access import get_db_engine
 

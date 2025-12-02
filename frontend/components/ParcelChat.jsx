@@ -9,6 +9,8 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [scores, setScores] = useState(null)
+  const [loadingScores, setLoadingScores] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -16,7 +18,26 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
     // reset messages when opening parcel chat (ephemeral)
     setMessages([])
     setInputValue('')
+    setScores(null)
     setTimeout(() => inputRef.current?.focus(), 200)
+    
+    if (parcel.lat && parcel.lon) {
+      setLoadingScores(true)
+      fetch('http://localhost:8000/geographic_scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: parcel.lat, lon: parcel.lon })
+      })
+        .then(r => r.json())
+        .then(data => {
+          setScores(data)
+          setLoadingScores(false)
+        })
+        .catch(err => {
+          console.error('Failed to fetch scores:', err)
+          setLoadingScores(false)
+        })
+    }
   }, [parcel])
 
   const callChat = async (message) => {
@@ -98,7 +119,9 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
               land_rank: 'Land Rank',
               date_update: 'Last Update',
               Shape__Area: 'Area',
-              Shape__Length: 'Perimeter'
+              Shape__Length: 'Perimeter',
+              lat: 'Latitude',
+              lon: 'Longitude'
             }
             const formatValue = (k, v) => {
               if (v === null || v === undefined || String(v).trim() === '') return null
@@ -109,13 +132,19 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                   return num.toLocaleString(undefined, { maximumFractionDigits: 2 })
                 }
               }
+              if (k === 'lat' || k === 'lon') {
+                const num = Number(v)
+                if (Number.isFinite(num)) {
+                  return num.toFixed(6)
+                }
+              }
               if (k === 'date_update') {
                 try { const d = new Date(v); if (!isNaN(d)) return d.toLocaleDateString() } catch (e) {}
               }
               return String(v)
             }
 
-            const keysToShow = ['address','owner1','bldg_desc','zoningbasedistrict','councildistrict','zipcode','land_rank','Shape__Area','Shape__Length','date_update','opa_id','objectid']
+            const keysToShow = ['address','lat','lon','owner1','bldg_desc','zoningbasedistrict','councildistrict','zipcode','land_rank','Shape__Area','Shape__Length','date_update','opa_id','objectid']
             const used = new Set()
             const rows = []
             for (const k of keysToShow) {
@@ -142,6 +171,36 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
             }
             return rows
           })()}
+          
+          {scores && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #eee' }}>
+              <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Geographic Scores</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Environmental:</span>
+                  <span style={{ fontWeight: 500 }}>{scores.environmental_score?.toFixed(1) || 'N/A'}/10</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Recreational:</span>
+                  <span style={{ fontWeight: 500 }}>{scores.recreational_score?.toFixed(1) || 'N/A'}/10</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Transit:</span>
+                  <span style={{ fontWeight: 500 }}>{scores.transit_score?.toFixed(1) || 'N/A'}/10</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Walkability:</span>
+                  <span style={{ fontWeight: 500 }}>{scores.walkability_score?.toFixed(1) || 'N/A'}/10</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {loadingScores && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #eee', fontSize: 13, color: '#64748b' }}>
+              Loading scores...
+            </div>
+          )}
         </div>
       </div>
 
