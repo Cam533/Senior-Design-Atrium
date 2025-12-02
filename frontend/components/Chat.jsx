@@ -22,7 +22,7 @@ const callChat = async (message) => {
   return response.json()
 }
 
-export default function Chat() {
+export default function Chat({ selectedParcel = null, onNewChat = null }) {
   const [messages, setMessages] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
@@ -43,6 +43,7 @@ export default function Chat() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -51,6 +52,14 @@ export default function Chat() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // When selectedParcel changes, scroll chat to bottom and optionally add a small context message
+  useEffect(() => {
+    if (!selectedParcel) return
+    // Don't inject a parcel summary message into the global chat.
+    // Only focus the input for convenience when a parcel is selected.
+    setTimeout(() => inputRef.current?.focus(), 200)
+  }, [selectedParcel])
 
   // Persist messages (and input) to localStorage when they change
   useEffect(() => {
@@ -120,6 +129,47 @@ export default function Chat() {
 
   return (
     <div className="chat-container">
+      {/* Global action bar with New Chat button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', borderBottom: '1px solid #eee', background: '#fbfbfb' }}>
+        <button
+          type="button"
+          className="chat-send-button"
+          onClick={() => {
+            try {
+              localStorage.removeItem(STORAGE_KEY)
+              localStorage.removeItem(`${STORAGE_KEY}_input`)
+            } catch (e) { /* ignore */ }
+            setMessages(initialMessages)
+            setInputValue('')
+            if (typeof onNewChat === 'function') onNewChat()
+            setTimeout(() => inputRef.current?.focus(), 100)
+          }}
+        >New Chat</button>
+      </div>
+
+      {selectedParcel && (
+        <div style={{ padding: '10px', borderBottom: '1px solid #eee', background: '#fbfbfb' }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>{selectedParcel.address || 'Selected Parcel'}</div>
+          <div style={{ fontSize: 13, color: '#333' }}>
+            {selectedParcel.owner1 ? <div><strong>Owner:</strong> {selectedParcel.owner1}</div> : null}
+            {selectedParcel.bldg_desc ? <div><strong>Land Type:</strong> {selectedParcel.bldg_desc}</div> : null}
+            {selectedParcel.zoningbasedistrict ? <div><strong>Zoning:</strong> {selectedParcel.zoningbasedistrict}</div> : null}
+            {selectedParcel.land_rank !== undefined ? <div><strong>Land Rank:</strong> {Number(selectedParcel.land_rank).toFixed(2)}</div> : null}
+          </div>
+          <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="chat-send-button"
+              onClick={() => {
+                const address = selectedParcel.address || 'this parcel'
+                setInputValue(`Tell me about ${address}`)
+                setTimeout(() => inputRef.current?.focus(), 100)
+              }}
+            >Ask about this parcel</button>
+          </div>
+        </div>
+      )}
+
       <div className="chat-messages">
         {messages.map((msg) => (
           <div key={msg.id} className={`chat-message ${msg.sender}`}>
@@ -137,6 +187,7 @@ export default function Chat() {
       
       <form className="chat-input-form" onSubmit={handleSend}>
         <input
+          ref={inputRef}
           type="text"
           className="chat-input"
           placeholder="Ask about permits, zoning, or development..."
