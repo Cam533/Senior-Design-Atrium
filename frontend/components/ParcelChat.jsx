@@ -40,6 +40,57 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
     }
   }, [parcel])
 
+  // Helper component to render a message bubble with optional truncation
+  function MessageBubble({ msg }) {
+    const [expanded, setExpanded] = useState(false)
+    const limit = 350
+    const isLong = typeof msg.text === 'string' && msg.text.length > limit
+    const displayText = isLong && !expanded ? msg.text.slice(0, limit) + '…' : msg.text
+
+    const commonStyle = {
+      display: 'inline-block',
+      maxWidth: '80%',
+      wordBreak: 'break-word',
+      whiteSpace: 'pre-wrap',
+      fontSize: 14,
+      lineHeight: '1.3',
+    }
+
+    const isBot = msg.sender === 'bot'
+
+    const bubbleStyle = isBot
+      ? { background: '#f1f5f9', padding: 8, borderRadius: 8, ...commonStyle }
+      : { background: '#0f172a', color: 'white', padding: 8, borderRadius: 8, textAlign: 'right', ...commonStyle, fontSize: 13 }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isBot ? 'flex-start' : 'flex-end' }}>
+        <div style={bubbleStyle}>
+          {isBot ? (
+            <ReactMarkdown
+              components={{
+                h1: ({node, ...props}) => <div style={{ fontSize: 16, fontWeight: 700 }} {...props} />, 
+                h2: ({node, ...props}) => <div style={{ fontSize: 15, fontWeight: 700 }} {...props} />,
+                h3: ({node, ...props}) => <div style={{ fontSize: 14, fontWeight: 700 }} {...props} />,
+                p: ({node, ...props}) => <div style={{ margin: 0 }} {...props} />,
+              }}
+            >
+              {displayText}
+            </ReactMarkdown>
+          ) : (
+            displayText
+          )}
+        </div>
+        {isLong && (
+          <div style={{ marginTop: 6 }}>
+            <button onClick={() => setExpanded(!expanded)} style={{ background: 'transparent', border: 'none', color: isBot ? '#2563eb' : '#93c5fd', cursor: 'pointer', padding: 0 }}>
+              {expanded ? 'Show less' : 'Read more'}
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const callChat = async (message) => {
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -102,7 +153,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
       flexDirection: 'column'
     }}>
       {/* Full feature/property summary at top */}
-      <div style={{ padding: 12, borderBottom: '1px solid #eee', background: '#fbfbfb', maxHeight: '30vh', overflowY: 'auto' }}>
+      <div style={{ padding: 12, borderBottom: '1px solid #eee', background: '#fbfbfb', maxHeight: '24vh', overflowY: 'auto' }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>{parcel.address || 'Selected Parcel'}</div>
         <div style={{ fontSize: 13, color: '#111', display: 'flex', flexDirection: 'column', gap: 6 }}>
           {(() => {
@@ -144,7 +195,8 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
               return String(v)
             }
 
-            const keysToShow = ['address','lat','lon','owner1','bldg_desc','zoningbasedistrict','councildistrict','zipcode','land_rank','Shape__Area','Shape__Length','date_update','opa_id','objectid']
+            // Show a reduced set of summary fields to avoid cutting off the top
+            const keysToShow = ['address','owner1','bldg_desc','zoningbasedistrict','councildistrict','zipcode']
             const used = new Set()
             const rows = []
             for (const k of keysToShow) {
@@ -206,12 +258,8 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
 
       <div style={{ padding: 12, overflowY: 'auto', flex: 1 }}>
         {messages.map(msg => (
-          <div key={msg.id} style={{ marginBottom: 10 }}>
-            {msg.sender === 'bot' ? (
-              <div style={{ background: '#f1f5f9', padding: 8, borderRadius: 8 }}><ReactMarkdown>{msg.text}</ReactMarkdown></div>
-            ) : (
-              <div style={{ background: '#0f172a', color: 'white', padding: 8, borderRadius: 8, textAlign: 'right' }}>{msg.text}</div>
-            )}
+          <div key={msg.id} style={{ marginBottom: 10, display: 'flex', justifyContent: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
+            <MessageBubble msg={msg} />
           </div>
         ))}
       </div>
