@@ -28,5 +28,6 @@ except Exception as e:
     )
 
 with engine.connect() as conn:
-    result = conn.execute(text("SELECT COUNT(*) FROM parcels_enriched;"))
+    result = conn.execute(text("SELECT * FROM parcels_enriched LIMIT 10;"))
+    print("First 10 rows:", result.fetchall())
     print("Row count:", result.scalar())
