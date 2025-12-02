@@ -1,229 +1,420 @@
-import React, { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
-import Chat from './Chat'
-import ParcelChat from './ParcelChat'
-import L from 'leaflet'
+import React, { useState, useEffect, useRef } from "react";
+import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
+import { useMap } from "react-leaflet";
+import Chat from "./Chat";
+import ParcelChat from "./ParcelChat";
+import L from "leaflet";
 
 // Fix default icon paths for Vite asset handling
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
-})
+});
 
 const getMapData = async () => {
   try {
-    const response = await fetch('http://localhost:8000/map')
-    if (!response.ok) throw new Error('Failed to fetch map data')
-    return await response.json()
+    const response = await fetch("http://localhost:8000/map");
+    if (!response.ok) throw new Error("Failed to fetch map data");
+    return await response.json();
   } catch (error) {
-    console.error("Error loading map data:", error)
-    return null
+    console.error("Error loading map data:", error);
+    return null;
   }
-}
+};
 
 const onMapClick = (evt, map) => {
-    const lat = evt.latlng.lat
-    const lon = evt.latlng.lng
-    const body = { lat, lon, radius_m: 100 }
+  const lat = evt.latlng.lat;
+  const lon = evt.latlng.lng;
+  const body = { lat, lon, radius_m: 100 };
 
-    fetch("http://localhost:8000/census_nearby", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+  fetch("http://localhost:8000/census_nearby", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      console.log("census_nearby:", data);
+      if (data.results && data.results.length) {
+        const first = data.results[0];
+        // don't create a Leaflet popup here — just log results for now
+        console.log("census_nearby result (first):", first);
+      } else {
+        console.log("census_nearby: no parcels found nearby");
+      }
     })
-      .then((r) => r.json())
-      .then((data) => {
-        console.log("census_nearby:", data)
-        if (data.results && data.results.length) {
-          const first = data.results[0]
-          // don't create a Leaflet popup here — just log results for now
-          console.log('census_nearby result (first):', first)
-        } else {
-          console.log('census_nearby: no parcels found nearby')
-        }
-      })
-      .catch((err) => console.error("census_nearby error", err))
-  }
+    .catch((err) => console.error("census_nearby error", err));
+};
 
-export default function Map() {
-  const [mapData, setMapData] = useState(null)
-  const [mapInstance, setMapInstance] = useState(null)
-  const center = [39.9526, -75.17511] // Philadelphia
-  const [showChat, setShowChat] = useState(false) 
-  const [selectedPolygon, setSelectedPolygon] = useState(null)
-  const [showParcelChat, setShowParcelChat] = useState(false)
+// ChunkedGeoJSON component: progressively add GeoJSON features in small batches
+function ChunkedGeoJSON({ data, batchSize = 300, options = {} }) {
+  const map = useMap();
+  const layerRef = useRef(null);
 
   useEffect(() => {
-    getMapData().then(data => {
-      if (data) setMapData(data)
-    })
-  }, [])
+    if (!data || !data.features || !map) return;
+
+    // create an empty geoJSON layer with provided options
+    const g = L.geoJSON(null, options).addTo(map);
+    layerRef.current = g;
+
+    let idx = 0;
+    const features = data.features || [];
+
+    function addBatch() {
+      const start = idx;
+      const end = Math.min(idx + batchSize, features.length);
+      for (let i = start; i < end; i++) {
+        try {
+          g.addData(features[i]);
+        } catch (err) {
+          // skip malformed features
+          console.warn("Failed to add feature", err);
+        }
+      }
+      idx = end;
+      if (idx < features.length) {
+        if (window.requestIdleCallback) {
+          window.requestIdleCallback(addBatch, { timeout: 200 });
+        } else {
+          setTimeout(addBatch, 16);
+        }
+      }
+    }
+
+    addBatch();
+
+    return () => {
+      try {
+        map.removeLayer(g);
+      } catch (err) {}
+    };
+    // Intentionally keep options out of deps here; options should be memoized
+  }, [data, map, batchSize]);
+
+  return null;
+}
+
+export default function Map() {
+  const [mapData, setMapData] = useState(null);
+  const [mapInstance, setMapInstance] = useState(null);
+  const selectedLayerRef = useRef(null);
+  const center = [39.9526, -75.17511]; // Philadelphia
+  const [showChat, setShowChat] = useState(false);
+  const [selectedPolygon, setSelectedPolygon] = useState(null);
+  const [showParcelChat, setShowParcelChat] = useState(false);
+
+  const defaultLayerStyle = React.useMemo(() => ({
+    color: "#2b8cbe",
+    weight: 2,
+    fillColor: "#2b8cbe",
+    fillOpacity: 0.3,
+    interactive: true,
+  }), []);
+
+  useEffect(() => {
+    getMapData().then((data) => {
+      if (data) setMapData(data);
+    });
+  }, []);
 
   // Attach map click handler when mapInstance is available
   useEffect(() => {
     if (mapInstance) {
-      const handler = (evt) => onMapClick(evt, mapInstance)
-      mapInstance.on('click', handler)
+      const handler = (evt) => onMapClick(evt, mapInstance);
+      mapInstance.on("click", handler);
       return () => {
-        mapInstance.off('click', handler)
+        mapInstance.off("click", handler);
+      };
+    }
+  }, [mapInstance]);
+
+  // Define the per-feature interaction handler so it can be used by the chunked loader
+  const handleEachFeature = React.useCallback((feature, layer) => {
+    const props = feature.properties || {};
+
+    const labelMap = {
+      address: "Address",
+      owner1: "Owner",
+      bldg_desc: "Land Type",
+      councildistrict: "Council District",
+      zoningbasedistrict: "Zoning",
+      zipcode: "ZIP Code",
+      land_rank: "Land Rank",
+      date_update: "Last Update",
+    };
+
+    const formatValue = (k, v) => {
+      if (v === null || v === undefined || String(v).trim() === "") return null;
+      if (k === "Shape__Area" || k === "Shape__Length" || k === "land_rank") {
+        const num = Number(v);
+        if (Number.isFinite(num)) {
+          if (k === "land_rank") return num.toFixed(2);
+          return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+      }
+      if (k === "date_update") {
+        try {
+          const d = new Date(v);
+          if (!isNaN(d)) return d.toLocaleDateString();
+        } catch (e) {}
+      }
+      return String(v);
+    };
+
+    const htmlParts = [];
+    const keysToShow = [
+      "address",
+      "owner1",
+      "bldg_desc",
+      "zoningbasedistrict",
+      "councildistrict",
+      "zipcode",
+      "land_rank",
+      "date_update",
+    ];
+    const used = new Set();
+    for (const k of keysToShow) {
+      if (props[k] !== undefined) {
+        const label = labelMap[k] || k;
+        const val = formatValue(k, props[k]);
+        if (val !== null) {
+          htmlParts.push(`<div style="margin-bottom:6px;"><strong>${label}:</strong> ${val}</div>`);
+          used.add(k);
+        }
       }
     }
-  }, [mapInstance])
+    const skipKeys = new Set(["lniaddresskey", "build_rank", "objectid", "opa_id", "shape__area", "shape__length", "lat", "lon"]);
+    let extraCount = 0;
+    for (const [k, v] of Object.entries(props)) {
+      if (used.has(k)) continue;
+      if (extraCount >= 5) break;
+      if (skipKeys.has(String(k).toLowerCase())) continue;
+      const val = formatValue(k, v);
+      if (val !== null) {
+        const label = labelMap[k] || String(k).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        htmlParts.push(`<div><strong>${label}:</strong> ${val}</div>`);
+        extraCount += 1;
+      }
+    }
 
-  // Define the polygons layer
-  const plotPolygons = mapData ? (
-    <GeoJSON 
-      data={mapData}
-      style={{
+    layer.on("click", (e) => {
+      try {
+        e.originalEvent && e.originalEvent.stopPropagation();
+      } catch (err) {}
+      console.log("Clicked", feature.properties);
+
+      let lat = null;
+      let lon = null;
+
+      if (feature.geometry && feature.geometry.coordinates) {
+        const coords = feature.geometry.coordinates;
+        if (feature.geometry.type === "Polygon" && coords[0] && coords[0].length > 0) {
+          const polygonCoords = coords[0];
+          let sumLat = 0,
+            sumLon = 0;
+          for (const coord of polygonCoords) {
+            sumLon += coord[0];
+            sumLat += coord[1];
+          }
+          lon = sumLon / polygonCoords.length;
+          lat = sumLat / polygonCoords.length;
+        } else if (feature.geometry.type === "MultiPolygon") {
+          const firstPolygon = coords[0];
+          if (firstPolygon && firstPolygon[0] && firstPolygon[0].length > 0) {
+            const polygonCoords = firstPolygon[0];
+            let sumLat = 0,
+              sumLon = 0;
+            for (const coord of polygonCoords) {
+              sumLon += coord[0];
+              sumLat += coord[1];
+            }
+            lon = sumLon / polygonCoords.length;
+            lat = sumLat / polygonCoords.length;
+          }
+        }
+      }
+
+      const parcelWithCoords = {
+        ...feature.properties,
+        lat: lat || e.latlng.lat,
+        lon: lon || e.latlng.lng,
+      };
+
+      // reset previous selection style (if a different layer)
+      try {
+        if (selectedLayerRef.current && selectedLayerRef.current !== layer) {
+          selectedLayerRef.current.setStyle && selectedLayerRef.current.setStyle(defaultLayerStyle);
+        }
+      } catch (err) {
+        /* ignore */
+      }
+
+      // highlight this layer and remember it
+      layer.setStyle({ color: "red" });
+      selectedLayerRef.current = layer;
+
+      setSelectedPolygon(parcelWithCoords);
+      // show the independent parcel chat (do not open main chat)
+      setShowParcelChat(true);
+      setShowChat(false);
+
+      // Animate zoom/pan to the parcel and offset it so it appears
+      // left-of-center when the chat opens (leaves room on the right).
+      // Use the layer's map reference when possible to avoid stale closures
+      try {
+        const map = (layer && layer._map) || mapInstance;
+        if (map) {
+          // Determine a target latlng and zoom. Prefer bounds if available.
+          let targetLatLng = null;
+          let targetZoom = 16;
+          if (layer.getBounds && typeof layer.getBounds === "function") {
+            const bounds = layer.getBounds();
+            targetLatLng = bounds.getCenter();
+            // try to compute a zoom that fits the bounds (fallback to +2 zoom)
+            try {
+              if (typeof map.getBoundsZoom === "function") {
+                const z = map.getBoundsZoom(bounds, false);
+                if (Number.isFinite(z)) targetZoom = Math.max(z, 17);
+              } else {
+                targetZoom = Math.max(map.getZoom(), 16);
+              }
+            } catch (err) {
+              targetZoom = Math.max(map.getZoom(), 16);
+            }
+          }
+
+          if (!targetLatLng && e && e.latlng) {
+            targetLatLng = e.latlng;
+          }
+
+          // If we have a target, fly to the parcel's geographic center (centered)
+          if (targetLatLng) {
+            const centerOffset = L.point(15, 0); // offset left by 200 pixels
+            const latLng = map.containerPointToLatLng(
+              map.latLngToContainerPoint(targetLatLng).add(centerOffset)
+            );
+            map.flyTo(latLng, targetZoom, { animate: true, duration: 0.8 });
+          }
+        }
+      } catch (err) {
+        console.warn("Could not recenter map on parcel:", err);
+      }
+    });
+
+    layer.on("mouseover", () => layer.setStyle({ weight: 3 }));
+    layer.on("mouseout", () => layer.setStyle({ weight: 2 }));
+  }, [setSelectedPolygon, setShowParcelChat, setShowChat, defaultLayerStyle]);
+
+  // Create a memoized options object so the chunked loader doesn't restart
+  const chunkOptions = React.useMemo(() => {
+    return {
+      style: {
         color: "#2b8cbe",
         weight: 2,
         fillColor: "#2b8cbe",
         fillOpacity: 0.3,
-        interactive: true
-      }}
-      onEachFeature={(feature, layer) => {
-        // Build a curated, user-friendly popup from properties
-        const props = feature.properties || {}
+        interactive: true,
+      },
+      onEachFeature: handleEachFeature,
+      renderer: L.canvas({ tolerance: 10 }),
+    };
+  }, [handleEachFeature]);
 
-        const labelMap = {
-          objectid: 'Object ID',
-          address: 'Address',
-          owner1: 'Owner',
-          bldg_desc: 'Land Type',
-          opa_id: 'OPA ID',
-          councildistrict: 'Council District',
-          zoningbasedistrict: 'Zoning',
-          zipcode: 'ZIP Code',
-          land_rank: 'Land Rank',
-          date_update: 'Last Update',
-          Shape__Area: 'Area',
-          Shape__Length: 'Perimeter'
-        }
+  // When the parcel chat closes or the selection is cleared, reset the previous layer's style
+  useEffect(() => {
+    if (!showParcelChat || !selectedPolygon) {
+      if (selectedLayerRef.current) {
+        try {
+          selectedLayerRef.current.setStyle && selectedLayerRef.current.setStyle(defaultLayerStyle);
+        } catch (err) {}
+        selectedLayerRef.current = null;
+      }
+    }
+  }, [showParcelChat, selectedPolygon, defaultLayerStyle]);
 
-        const formatValue = (k, v) => {
-          if (v === null || v === undefined || String(v).trim() === '') return null
-          // Numeric formatting
-          if (k === 'Shape__Area' || k === 'Shape__Length' || k === 'land_rank') {
-            const num = Number(v)
-            if (Number.isFinite(num)) {
-              if (k === 'land_rank') return num.toFixed(2)
-              return num.toLocaleString(undefined, { maximumFractionDigits: 2 })
-            }
-          }
-          // Date formatting
-          if (k === 'date_update') {
-            try {
-              const d = new Date(v)
-              if (!isNaN(d)) return d.toLocaleDateString()
-            } catch (e) { /* fall through */ }
-          }
-          return String(v)
-        }
-
-        const htmlParts = []
-        // Order the most useful fields first
-        const keysToShow = ['address','owner1','bldg_desc','zoningbasedistrict','councildistrict','zipcode','land_rank','Shape__Area','Shape__Length','date_update','opa_id','objectid']
-        const used = new Set()
-        for (const k of keysToShow) {
-          if (props[k] !== undefined) {
-            const label = labelMap[k] || k
-            const val = formatValue(k, props[k])
-            if (val !== null) {
-              htmlParts.push(`<div style="margin-bottom:6px;"><strong>${label}:</strong> ${val}</div>`)
-              used.add(k)
-            }
-          }
-        }
-        // Add any other small useful props (limit to 5), but skip noisy fields
-        const skipKeys = new Set(['lniaddresskey', 'build_rank'])
-        let extraCount = 0
-        for (const [k,v] of Object.entries(props)) {
-          if (used.has(k)) continue
-          if (extraCount >= 5) break
-          // Skip blacklisted keys (case-insensitive)
-          if (skipKeys.has(String(k).toLowerCase())) continue
-          const val = formatValue(k, v)
-          if (val !== null) {
-            htmlParts.push(`<div><strong>${k}:</strong> ${val}</div>`)
-            extraCount += 1
-          }
-        }
-
-        // Do not bind or open a Leaflet popup for features; show properties in the ParcelChat panel instead
-        // const popupHtml = `<div style="font-family: sans-serif; max-width:320px">${htmlParts.join('')}</div>`
-        // layer.bindPopup(popupHtml)
-
-        layer.on("click", (e) => {
-          // Prevent the global map click handler from also firing
-          try { e.originalEvent && e.originalEvent.stopPropagation() } catch (err) {}
-          console.log("Clicked", feature.properties)
-          // highlight the clicked polygon
-          layer.setStyle({ color: "red" })
-          setSelectedPolygon(feature.properties)
-          // show the independent parcel chat (do not open main chat)
-          setShowParcelChat(true)
-          setShowChat(false)
-          // center and zoom the map to the parcel bounds if possible
-          try {
-            if (mapInstance && layer.getBounds) {
-              const bounds = layer.getBounds()
-              mapInstance.fitBounds(bounds, { padding: [120, 120], maxZoom: 17 })
-            } else if (mapInstance && e && e.latlng) {
-              mapInstance.setView([e.latlng.lat, e.latlng.lng], 16, { animate: true })
-            }
-          } catch (err) {
-            console.warn('Could not recenter map on parcel:', err)
-          }
-        })
-
-        // hover effect
-        layer.on('mouseover', () => layer.setStyle({ weight: 3 }))
-        layer.on('mouseout', () => layer.setStyle({ weight: 2 }))
-      }}
-    />
-  ) : null
+  // Zoom back out a bit when the parcel chat closes (but only when it was open)
+  const prevShowParcelChat = useRef(showParcelChat);
+  useEffect(() => {
+    if (prevShowParcelChat.current && !showParcelChat && mapInstance) {
+      try {
+        const map = mapInstance;
+        const currentZoom = map.getZoom();
+        const newZoom = Math.max(10, currentZoom - 1); // zoom out by 1, but not too far
+        const center = map.getCenter();
+        const centerOffset = L.point(-15, 0); // offset left by 200 pixels
+        const targetLatLng = map.containerPointToLatLng(
+          map.latLngToContainerPoint(center).add(centerOffset)
+        );
+        map.flyTo(targetLatLng, newZoom, { animate: true, duration: 0.6 });
+      } catch (err) {
+        console.warn("Failed to zoom out on chat close:", err);
+      }
+    }
+    prevShowParcelChat.current = showParcelChat;
+  }, [showParcelChat, mapInstance]);
 
   // need to add this somewhere: map.on('click', onMapClick);
   return (
-    <div style={{ display: 'flex', height: '100%', width: '100%' }}>
-      
+    <div style={{ display: "flex", height: "100%", width: "100%" }}>
       {/* Map Area */}
-      <div style={{ flex: 1, position: 'relative' }}>
-        <MapContainer 
-          center={center} 
-          zoom={14} 
-          style={{ height: '100%', width: '100%' }}
+      <div style={{ flex: 1, position: "relative" }}>
+        <MapContainer
+          center={center}
+          zoom={14}
+          style={{ height: "100%", width: "100%" }}
           whenCreated={setMapInstance}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {plotPolygons}
+          {mapData && <ChunkedGeoJSON data={mapData} batchSize={300} options={chunkOptions} />}
         </MapContainer>
       </div>
 
       {/* Chat Sidebar */}
       {showChat && (
-        <div style={{ 
-          width: '400px', 
-          borderLeft: '1px solid #ccc', 
-          background: 'white',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{ padding: '10px', background: '#f1f5f9', display: 'flex', justifyContent: 'space-between' }}>
+        <div
+          style={{
+            width: "400px",
+            borderLeft: "1px solid #ccc",
+            background: "white",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div
+            style={{
+              padding: "10px",
+              background: "#f1f5f9",
+              display: "flex",
+              justifyContent: "space-between",
+            }}
+          >
             <strong>Chat</strong>
-            <button onClick={() => setShowChat(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>✖</button>
+            <button
+              onClick={() => setShowChat(false)}
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            >
+              ✖
+            </button>
           </div>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflow: "hidden" }}>
             {/* Pass selected polygon to Chat so it can show parcel-specific context */}
-            <Chat selectedParcel={selectedPolygon} onNewChat={() => setSelectedPolygon(null)} />
+            <Chat
+              selectedParcel={selectedPolygon}
+              onNewChat={() => setSelectedPolygon(null)}
+            />
           </div>
         </div>
       )}
@@ -235,7 +426,6 @@ export default function Map() {
           onClose={() => setShowParcelChat(false)}
         />
       )}
-
     </div>
-  )
+  );
 }
