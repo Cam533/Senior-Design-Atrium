@@ -3,6 +3,7 @@ import numpy as np
 from geopy.distance import geodesic
 from typing import Dict
 import os
+import logging
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
@@ -20,16 +21,31 @@ _mini_city_halls_df = None
 def _load_data():
     global _parks_df, _trails_df, _trees_df, _gardens_df, _program_sites_df
     global _transit_stops_df, _bike_network_df, _complete_streets_df, _mini_city_halls_df
+    # Configure basic logging for missing files warnings
+    logging.basicConfig(level=logging.INFO)
+
+    def _safe_read(fname):
+        path = os.path.join(DATA_DIR, fname)
+        if not os.path.exists(path):
+            logging.warning("Data file not found: %s", path)
+            return pd.DataFrame()
+        try:
+            # Use low_memory=False to avoid dtype warnings on large CSVs
+            return pd.read_csv(path, low_memory=False)
+        except Exception as e:
+            logging.warning("Failed to read %s: %s", path, e)
+            return pd.DataFrame()
+
     if _parks_df is None:
-        _parks_df = pd.read_csv(os.path.join(DATA_DIR, "PPR_Properties.csv"))
-        _trails_df = pd.read_csv(os.path.join(DATA_DIR, "PPR_Trails.csv"))
-        _trees_df = pd.read_csv(os.path.join(DATA_DIR, "ppr_tree_inventory_2024.csv"))
-        _gardens_df = pd.read_csv(os.path.join(DATA_DIR, "Registered_Community_Gardens.csv"))
-        _program_sites_df = pd.read_csv(os.path.join(DATA_DIR, "PPR_Program_Sites.csv"))
-        _transit_stops_df = pd.read_csv(os.path.join(DATA_DIR, "Transit_Stops_(Spring_2025).csv"))
-        _bike_network_df = pd.read_csv(os.path.join(DATA_DIR, "Bike_Network.csv"))
-        _complete_streets_df = pd.read_csv(os.path.join(DATA_DIR, "CompleteStreets.csv"))
-        _mini_city_halls_df = pd.read_csv(os.path.join(DATA_DIR, "mini_city_halls.csv"))
+        _parks_df = _safe_read("PPR_Properties.csv")
+        _trails_df = _safe_read("PPR_Trails.csv")
+        _trees_df = _safe_read("ppr_tree_inventory_2024.csv")
+        _gardens_df = _safe_read("Registered_Community_Gardens.csv")
+        _program_sites_df = _safe_read("PPR_Program_Sites.csv")
+        _transit_stops_df = _safe_read("Transit_Stops_(Spring_2025).csv")
+        _bike_network_df = _safe_read("Bike_Network.csv")
+        _complete_streets_df = _safe_read("CompleteStreets.csv")
+        _mini_city_halls_df = _safe_read("mini_city_halls.csv")
     return (_parks_df, _trails_df, _trees_df, _gardens_df, _program_sites_df,
             _transit_stops_df, _bike_network_df, _complete_streets_df, _mini_city_halls_df)
 

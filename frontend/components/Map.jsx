@@ -139,18 +139,14 @@ export default function Map() {
     const props = feature.properties || {};
 
     const labelMap = {
-      objectid: "Object ID",
       address: "Address",
       owner1: "Owner",
       bldg_desc: "Land Type",
-      opa_id: "OPA ID",
       councildistrict: "Council District",
       zoningbasedistrict: "Zoning",
       zipcode: "ZIP Code",
       land_rank: "Land Rank",
       date_update: "Last Update",
-      Shape__Area: "Area",
-      Shape__Length: "Perimeter",
     };
 
     const formatValue = (k, v) => {
@@ -180,11 +176,7 @@ export default function Map() {
       "councildistrict",
       "zipcode",
       "land_rank",
-      "Shape__Area",
-      "Shape__Length",
       "date_update",
-      "opa_id",
-      "objectid",
     ];
     const used = new Set();
     for (const k of keysToShow) {
@@ -197,7 +189,7 @@ export default function Map() {
         }
       }
     }
-    const skipKeys = new Set(["lniaddresskey", "build_rank"]);
+    const skipKeys = new Set(["lniaddresskey", "build_rank", "objectid", "opa_id", "shape__area", "shape__length", "lat", "lon"]);
     let extraCount = 0;
     for (const [k, v] of Object.entries(props)) {
       if (used.has(k)) continue;
@@ -205,7 +197,8 @@ export default function Map() {
       if (skipKeys.has(String(k).toLowerCase())) continue;
       const val = formatValue(k, v);
       if (val !== null) {
-        htmlParts.push(`<div><strong>${k}:</strong> ${val}</div>`);
+        const label = labelMap[k] || String(k).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        htmlParts.push(`<div><strong>${label}:</strong> ${val}</div>`);
         extraCount += 1;
       }
     }
@@ -302,7 +295,11 @@ export default function Map() {
 
           // If we have a target, fly to the parcel's geographic center (centered)
           if (targetLatLng) {
-            map.flyTo(targetLatLng, targetZoom, { animate: true, duration: 0.8 });
+            const centerOffset = L.point(15, 0); // offset left by 200 pixels
+            const latLng = map.containerPointToLatLng(
+              map.latLngToContainerPoint(targetLatLng).add(centerOffset)
+            );
+            map.flyTo(latLng, targetZoom, { animate: true, duration: 0.8 });
           }
         }
       } catch (err) {
@@ -349,7 +346,12 @@ export default function Map() {
         const map = mapInstance;
         const currentZoom = map.getZoom();
         const newZoom = Math.max(10, currentZoom - 1); // zoom out by 1, but not too far
-        map.flyTo(map.getCenter(), newZoom, { animate: true, duration: 0.6 });
+        const center = map.getCenter();
+        const centerOffset = L.point(-15, 0); // offset left by 200 pixels
+        const targetLatLng = map.containerPointToLatLng(
+          map.latLngToContainerPoint(center).add(centerOffset)
+        );
+        map.flyTo(targetLatLng, newZoom, { animate: true, duration: 0.6 });
       } catch (err) {
         console.warn("Failed to zoom out on chat close:", err);
       }
