@@ -23,7 +23,7 @@ CENSUS_API_KEY = "c50562fadf7bcd7d4989a392ccbf9c2333fc74d2"
 OPA_DATA_FILE = "../../data/opa_properties_public.csv"
 OUTPUT_FILE = "../../data/philadelphia_parcels_enriched.csv"
 
-SAMPLE_SIZE = 1000  # Change to None for full run
+SAMPLE_SIZE = 10000  # Change to None for full run
 
 # Census variables to fetch
 CENSUS_VARIABLES = [

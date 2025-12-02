@@ -10,6 +10,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [scores, setScores] = useState(null)
+  const [censusData, setCensusData] = useState(null)
   const [loadingScores, setLoadingScores] = useState(false)
   const inputRef = useRef(null)
 
@@ -19,10 +20,13 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
     setMessages([])
     setInputValue('')
     setScores(null)
+    setCensusData(null)
     setTimeout(() => inputRef.current?.focus(), 200)
     
     if (parcel.lat && parcel.lon) {
       setLoadingScores(true)
+      
+      // Fetch geographic scores
       fetch('http://localhost:8000/geographic_scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,6 +40,22 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
         .catch(err => {
           console.error('Failed to fetch scores:', err)
           setLoadingScores(false)
+        })
+      
+      // Fetch census data
+      fetch('http://localhost:8000/parcel_census_data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: parcel.lat, lon: parcel.lon, radius_m: 50 })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.data) {
+            setCensusData(data.data)
+          }
+        })
+        .catch(err => {
+          console.error('Failed to fetch census data:', err)
         })
     }
   }, [parcel])
@@ -224,6 +244,56 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
             return rows
           })()}
           
+          {censusData && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #eee' }}>
+              <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Census Tract Data</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                {censusData.category_code_description && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Property Type:</span>
+                    <span style={{ fontWeight: 500 }}>{censusData.category_code_description}</span>
+                  </div>
+                )}
+                {censusData.census_tract && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Census Tract:</span>
+                    <span style={{ fontWeight: 500 }}>{censusData.census_tract}</span>
+                  </div>
+                )}
+                {censusData.tract_total_pop !== null && censusData.tract_total_pop !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Tract Population:</span>
+                    <span style={{ fontWeight: 500 }}>{Math.round(censusData.tract_total_pop).toLocaleString()}</span>
+                  </div>
+                )}
+                {censusData.tract_median_income !== null && censusData.tract_median_income !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Median Income:</span>
+                    <span style={{ fontWeight: 500 }}>${Math.round(censusData.tract_median_income).toLocaleString()}</span>
+                  </div>
+                )}
+                {censusData.tract_median_age !== null && censusData.tract_median_age !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Median Age:</span>
+                    <span style={{ fontWeight: 500 }}>{censusData.tract_median_age.toFixed(1)} years</span>
+                  </div>
+                )}
+                {censusData.tract_median_home_value !== null && censusData.tract_median_home_value !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Median Home Value:</span>
+                    <span style={{ fontWeight: 500 }}>${Math.round(censusData.tract_median_home_value).toLocaleString()}</span>
+                  </div>
+                )}
+                {censusData.tract_median_rent !== null && censusData.tract_median_rent !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Median Rent:</span>
+                    <span style={{ fontWeight: 500 }}>${Math.round(censusData.tract_median_rent).toLocaleString()}/mo</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {scores && (
             <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #eee' }}>
               <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Geographic Scores</div>
@@ -250,7 +320,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
           
           {loadingScores && (
             <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #eee', fontSize: 13, color: '#64748b' }}>
-              Loading scores...
+              Loading data...
             </div>
           )}
         </div>
