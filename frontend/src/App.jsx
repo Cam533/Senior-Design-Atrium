@@ -2,13 +2,17 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import { useState, useEffect } from 'react'
 import Map from '../components/Map'
 import Chat from '../components/Chat'
+import atriumIcon from '../pics/atrium_icon.png'
 
 function Topbar() {
   const location = useLocation()
   
   return (
     <div className="topbar">
-      <div className="brand">Atrium</div>
+      <div className="brand">
+        <img src={atriumIcon} alt="Atrium icon" className="brand-icon" />
+        <div className="brand-text">atrium</div>
+      </div>
       <nav className="topbar-nav">
         <Link 
           to="/" 

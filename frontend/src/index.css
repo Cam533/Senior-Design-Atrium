@@ -3,6 +3,8 @@
   --text: #0f172a;
 }
 
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap');
+
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -37,9 +39,29 @@ body {
 }
 
 .brand {
-  font-weight: 700;
-  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  font-size: 3rem;
   color: white;
+  font-family: 'Montserrat', Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.brand-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: none;
+  padding: 2px;
+}
+
+.brand-text {
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 .topbar-nav {
@@ -49,7 +71,7 @@ body {
 
 .nav-link {
   padding: 8px 16px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
   font-size: 0.95rem;
   border-radius: 6px;
@@ -58,12 +80,15 @@ body {
 
 .nav-link:hover {
   color: white;
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(2,6,23,0.25);
 }
 
 .nav-link.active {
   color: white;
-  background: rgba(255, 255, 255, 0.15);
+  background: linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.18));
+  box-shadow: 0 8px 20px rgba(2,6,23,0.22);
 }
 
 .main-content {
