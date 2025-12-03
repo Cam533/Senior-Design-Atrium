@@ -38,6 +38,9 @@ Atrium addresses this by:
 * Developed three parcel-level environmental and location scores (1–10), including walkability
 * Initiated a demand prediction model using census and location-based features
 
+#### Homepage
+<img width="1439" height="774" alt="Atrium Homepage" src="https://github.com/user-attachments/assets/3e0297ab-7d10-4883-ab00-ab1c05b4ab87" />
+
 ---
 
 ## Planned Features & Next Steps
