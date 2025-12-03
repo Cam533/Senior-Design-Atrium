@@ -10,11 +10,11 @@ Using geospatial data, zoning regulations, census information, and large languag
 
 ## Problem
 
-Cities contain many vacant or underutilized parcels that could support housing, green space, or community infrastructure. However, understanding development feasibility requires navigating fragmented data sources, complex zoning codes, and limited planning expertise.
+Cities contain many vacant or underutilized plots that could support housing, green space, or community infrastructure. However, understanding development feasibility requires navigating fragmented data sources, complex zoning codes, and limited planning expertise.
 
 Atrium addresses this by:
 
-* Identifying vacant and underused lots using parcel-level data
+* Identifying vacant and underused lots using city-level building and land data
 * Providing zoning- and code-aware insights through an AI chat interface
 * Recommending potential reuses that balance demand, feasibility, sustainability, and equity
 * Laying the groundwork to connect realty groups, architects, and contractors based on relevant experience
@@ -25,18 +25,21 @@ Atrium addresses this by:
 
 ### Core User Experience
 
-* Interactive frontend with map-based parcel exploration
-* AI-powered parcel-level chat grounded in Philadelphia zoning and building codes
+* Interactive frontend with map-based lot exploration
+* AI-powered lot-level chat grounded in Philadelphia zoning and building codes
 
 ### Data Infrastructure
 
 * Deployed an AWS relational database for census and demographic data
-* Populated the map with parcel boundaries and vacant lot indicators
+* Populated the map with plot boundaries and vacant lot indicators
 
 ### Modeling & Analytics
 
-* Developed three parcel-level environmental and location scores (1–10), including walkability
+* Developed lot-level environmental and location scores (1–10), including walkability, transit, and recreational
 * Initiated a demand prediction model using census and location-based features
+
+#### Homepage
+<img width="1439" height="774" alt="Atrium Homepage" src="https://github.com/user-attachments/assets/3e0297ab-7d10-4883-ab00-ab1c05b4ab87" />
 
 ---
 
@@ -45,7 +48,7 @@ Atrium addresses this by:
 ### User Accounts & Personalization
 
 * User authentication and profile management
-* Ability to save parcels, insights, and recommendations
+* Ability to save addresses, insights, and recommendations
 
 ### Collaboration & Social Features
 
@@ -59,5 +62,5 @@ Atrium addresses this by:
 
 ### Data Visualization
 
-* Display census and demographic data directly in the frontend at the parcel level
+* Display census and demographic data directly in the frontend at greater depth
 
