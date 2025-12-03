@@ -18,6 +18,18 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   const [hoveredTab, setHoveredTab] = useState(null)
   const [showRecommendations, setShowRecommendations] = useState(true)
   const inputRef = useRef(null)
+  const messagesContainerRef = useRef(null)
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
+  const [expandedMessageIds, setExpandedMessageIds] = useState(new Set())
+
+  const toggleMessageExpanded = (id) => {
+    setExpandedMessageIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   useEffect(() => {
     if (!parcel) return
@@ -78,8 +90,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   }, [parcel])
 
   // Helper component to render a message bubble with optional truncation
-  function MessageBubble({ msg }) {
-    const [expanded, setExpanded] = useState(false)
+  function MessageBubble({ msg, expanded, onToggle }) {
     const limit = 350
     const isLong = typeof msg.text === 'string' && msg.text.length > limit
     const displayText = isLong && !expanded ? msg.text.slice(0, limit) + '…' : msg.text
@@ -121,7 +132,24 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
         </div>
         {isLong && (
           <div style={{ marginTop: 6 }}>
-            <button onClick={() => setExpanded(!expanded)} style={{ background: 'transparent', border: 'none', color: isBot ? '#2563eb' : '#93c5fd', cursor: 'pointer', padding: 0 }}>
+            <button
+              onClick={() => {
+                onToggle && onToggle(msg.id)
+                // if the user hasn't scrolled up, keep the view pinned to the bottom
+                try {
+                  const el = messagesContainerRef.current
+                  if (el) {
+                    // schedule a frame so layout updates before scrolling
+                    window.requestAnimationFrame(() => {
+                      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+                    })
+                  }
+                } catch (e) {
+                  // ignore
+                }
+              }}
+              style={{ background: 'transparent', border: 'none', color: isBot ? '#2563eb' : '#93c5fd', cursor: 'pointer', padding: 0 }}
+            >
               {expanded ? 'Show less' : 'Read more'}
             </button>
           </div>
@@ -207,6 +235,19 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
     }
   }
 
+  // Keep the messages view pinned to the bottom when new messages arrive,
+  // unless the user has scrolled up (we toggle shouldAutoScroll in the onScroll handler).
+  useEffect(() => {
+    const el = messagesContainerRef.current
+    if (!el) return
+    if (shouldAutoScroll) {
+      // small timeout to ensure the new message is rendered
+      window.requestAnimationFrame(() => {
+        el.scrollTo({ top: el.scrollHeight })
+      })
+    }
+  }, [messages, shouldAutoScroll])
+
   if (!parcel) return null
 
   return (
@@ -241,7 +282,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
           fontSize: 18,
           fontWeight: 700,
           cursor: 'pointer',
-          zIndex: 2100,
+          zIndex: 2600,
         }}
       >
         ✕
@@ -489,7 +530,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
 
       {activeTab === 'chat' && (
         <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, background: '#fbfbfb', flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, background: '#fbfbfb', flex: 1, minHeight: 0 }}>
             {showRecommendations && (
               <>
                 <div style={{ marginBottom: 8 }}>
@@ -524,16 +565,41 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
               </>
             )}
 
-            <div style={{ paddingTop: 8, overflowY: 'auto', flex: 1 }}>
+            <div
+              ref={messagesContainerRef}
+              onScroll={() => {
+                const el = messagesContainerRef.current
+                if (!el) return
+                const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 64
+                setShouldAutoScroll(nearBottom)
+              }}
+              style={{ paddingTop: 8, overflowY: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 96 }}
+            >
               {messages.map(msg => (
                 <div key={msg.id} style={{ marginBottom: 10, display: 'flex', justifyContent: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
-                  <MessageBubble msg={msg} />
+                  <MessageBubble msg={msg} expanded={expandedMessageIds.has(msg.id)} onToggle={toggleMessageExpanded} />
                 </div>
               ))}
             </div>
           </div>
 
-          <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: 12, borderTop: 'none', background: '#fbfbfb' }}>
+          <form
+            onSubmit={handleSend}
+            style={{
+              display: 'flex',
+              gap: 8,
+              padding: 12,
+              borderTop: 'none',
+              background: 'rgba(251,251,251,0.98)',
+              position: 'absolute',
+              left: 12,
+              right: 12,
+              bottom: 12,
+              zIndex: 2400,
+              borderRadius: 8,
+              boxShadow: '0 -6px 18px rgba(15, 23, 42, 0.06)',
+            }}
+          >
             <input
               ref={inputRef}
               type="text"
