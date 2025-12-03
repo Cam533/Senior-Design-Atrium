@@ -11,6 +11,8 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   const [isLoading, setIsLoading] = useState(false)
   const [scores, setScores] = useState(null)
   const [loadingScores, setLoadingScores] = useState(false)
+  const [activeTab, setActiveTab] = useState('summary')
+  const [hoveredTab, setHoveredTab] = useState(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
     setMessages([])
     setInputValue('')
     setScores(null)
+    setActiveTab('summary')
     setTimeout(() => inputRef.current?.focus(), 200)
     
     if (parcel.lat && parcel.lon) {
@@ -49,10 +52,12 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
 
     const commonStyle = {
       display: 'inline-block',
-      maxWidth: '80%',
-      wordBreak: 'break-word',
+      maxWidth: '86%',
+      wordBreak: 'normal',
+      overflowWrap: 'break-word',
       whiteSpace: 'pre-wrap',
-      fontSize: 14,
+      fontSize: 13,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
       lineHeight: '1.3',
     }
 
@@ -152,7 +157,70 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
       display: 'flex',
       flexDirection: 'column'
     }}>
+      {/* Top-left close X */}
+      <button
+        onClick={() => onClose()}
+        aria-label="Close parcel chat"
+        style={{
+          position: 'absolute',
+          left: 12,
+          top: 12,
+          width: 32,
+          height: 32,
+          borderRadius: 6,
+          border: 'none',
+          background: 'transparent',
+          color: '#0f172a',
+          fontSize: 18,
+          fontWeight: 700,
+          cursor: 'pointer',
+          zIndex: 2100,
+        }}
+      >
+        ✕
+      </button>
+      {/* Tabs */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px', borderBottom: '1px solid #eef2f7' }}>
+        <button
+          onClick={() => setActiveTab('summary')}
+          onMouseEnter={() => setHoveredTab('summary')}
+          onMouseLeave={() => setHoveredTab(null)}
+          style={{
+            padding: '8px 12px',
+            border: 'none',
+            background: 'transparent',
+            color: activeTab === 'summary' ? '#0f172a' : (hoveredTab === 'summary' ? '#0f172a' : '#475569'),
+            cursor: 'pointer',
+            fontWeight: 700,
+            borderBottom: activeTab === 'summary' ? '3px solid #0f172a' : (hoveredTab === 'summary' ? '3px solid rgba(15,23,42,0.12)' : '3px solid transparent'),
+            borderRadius: 6,
+            transition: 'color 140ms ease, border-bottom-color 140ms ease'
+          }}
+        >
+          Summary
+        </button>
+        <button
+          onClick={() => { setActiveTab('chat'); setTimeout(() => inputRef.current?.focus(), 120); }}
+          onMouseEnter={() => setHoveredTab('chat')}
+          onMouseLeave={() => setHoveredTab(null)}
+          style={{
+            padding: '8px 12px',
+            border: 'none',
+            background: 'transparent',
+            color: activeTab === 'chat' ? '#0f172a' : (hoveredTab === 'chat' ? '#0f172a' : '#475569'),
+            cursor: 'pointer',
+            fontWeight: 700,
+            borderBottom: activeTab === 'chat' ? '3px solid #0f172a' : (hoveredTab === 'chat' ? '3px solid rgba(15,23,42,0.12)' : '3px solid transparent'),
+            borderRadius: 6,
+            transition: 'color 140ms ease, border-bottom-color 140ms ease'
+          }}
+        >
+          Chat
+        </button>
+      </div>
+
       {/* Full feature/property summary at top (scrollable) */}
+      {activeTab === 'summary' && (
       <div style={{ padding: 12, borderBottom: 'none', background: '#fbfbfb', maxHeight: '35vh', overflowY: 'auto' }}>
         <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 18, letterSpacing: 0.3, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial", color: '#0f172a' }}>{parcel.address || 'Selected Parcel'}</div>
         <div style={{ fontSize: 13, color: '#111', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -232,9 +300,10 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
           })()}
         </div>
       </div>
+      )}
 
       {/* Scores (kept visible outside the scrollable summary) */}
-      {scores && (
+      {activeTab === 'summary' && scores && (
         <div style={{ padding: 12, borderBottom: 'none', background: '#fbfbfb' }}>
           <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 14 }}>Geographic Scores</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -268,32 +337,35 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
         </div>
       )}
 
-      {loadingScores && (
+      {loadingScores && activeTab === 'summary' && (
         <div style={{ padding: 12, borderTop: 'none', fontSize: 13, color: '#64748b', background: '#fbfbfb' }}>
           Loading scores...
         </div>
       )}
 
-      <div style={{ padding: 12, overflowY: 'auto', flex: 1 }}>
-        {messages.map(msg => (
-          <div key={msg.id} style={{ marginBottom: 10, display: 'flex', justifyContent: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
-            <MessageBubble msg={msg} />
+      {activeTab === 'chat' && (
+        <>
+          <div style={{ padding: 12, overflowY: 'auto', flex: 1, background: '#fbfbfb' }}>
+            {messages.map(msg => (
+              <div key={msg.id} style={{ marginBottom: 10, display: 'flex', justifyContent: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
+                <MessageBubble msg={msg} />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: 12, borderTop: '1px solid #eee' }}>
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Ask about this lot..."
-          style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}
-        />
-        <button type="submit" className="chat-send-button">Send</button>
-        <button type="button" onClick={() => onClose()} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}>Close</button>
-      </form>
+          <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: 12, borderTop: 'none', background: '#fbfbfb' }}>
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Ask about this lot..."
+              style={{ flex: 1, padding: '8px 8px 8px 8px', borderRadius: 8, border: '1px solid #e2e8f0' }}
+            />
+            <button type="submit" className="chat-send-button">Send</button>
+          </form>
+        </>
+      )}
     </div>
   )
 }
