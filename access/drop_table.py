@@ -1,12 +1,17 @@
 # drop tables from the database
 
 import psycopg2 
+import os
+from dotenv import load_dotenv
 from db_access import get_db_connection
 import argparse
 
-def drop_table(table_name, confirm=False):
+load_dotenv()
+
+
+def drop_table(table_name, database_name, confirm=False):
     """Drop a table from the database"""
-    conn = get_db_connection()
+    conn = get_db_connection(database_name)
     cur = conn.cursor()
     
     try:
@@ -49,9 +54,9 @@ def drop_table(table_name, confirm=False):
         conn.close()
         return False
 
-def show_tables():
+def show_tables(database_name):
     """Show all available tables in the database"""
-    conn = get_db_connection()
+    conn = get_db_connection(database_name)
     cur = conn.cursor()
     cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;")
     tables = [table[0] for table in cur.fetchall()]
@@ -68,11 +73,12 @@ def show_tables():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Drop a table from the database')
     parser.add_argument('table_name', type=str, nargs='?', help='The name of the table to drop (optional - if not provided, shows available tables)')
+    parser.add_argument('--database', '-db', type=str, help='The name of the database (optional - uses default from .env if not provided)')
     parser.add_argument('--yes', '-y', action='store_true', help='Skip confirmation prompt')
     args = parser.parse_args()
     
     if args.table_name:
-        drop_table(args.table_name, confirm=args.yes)
+        drop_table(args.table_name, database_name=args.database, confirm=args.yes)
     else:
-        show_tables()
+        show_tables(database_name=args.database)
 

@@ -135,3 +135,40 @@ def reload_map_geojson():
 def geographic_scores(req: NearbyRequest):
     scores = score_location(req.lat, req.lon)
     return scores
+
+@app.post("/parcel_census_data")
+def parcel_census_data(req: NearbyRequest):
+    """Get census and property data for a parcel at given coordinates"""
+    sql = text("""
+    SELECT
+      parcel_number,
+      location AS address,
+      category_code_description,
+      census_tract,
+      tract_total_pop,
+      tract_median_income,
+      tract_median_age,
+      tract_pop_under_18,
+      tract_pop_65_plus,
+      tract_median_home_value,
+      tract_median_rent,
+      tract_transit_commuters,
+      tract_family_households,
+      tract_single_person_households,
+      owner_1,
+      zoning,
+      year_built,
+      market_value
+    FROM parcels_enriched
+    WHERE geom IS NOT NULL
+      AND ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius)
+    ORDER BY ST_Distance(geom::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography)
+    LIMIT 1;
+    """)
+    with engine.connect() as conn:
+        row = conn.execute(sql, {"lon": req.lon, "lat": req.lat, "radius": req.radius_m}).mappings().fetchone()
+    
+    if row:
+        return {"data": dict(row)}
+    else:
+        return {"data": None}
