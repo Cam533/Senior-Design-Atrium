@@ -293,3 +293,25 @@ body {
 .chat-send-button:active {
   background: #334155;
 }
+
+/* Recommendation bubble and button styles */
+.recommendation-inner {
+  /* container styles are set inline for alignment; this class is available for future tweaks */
+}
+
+.recommendation-button {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e6edf3;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  color: #0f172a;
+  transition: background-color 140ms ease, color 140ms ease, transform 120ms ease;
+}
+
+.recommendation-button:hover {
+  background-color: #0b2338; /* slightly darker navy */
+  color: #ffffff;
+  transform: translateY(-2px);
+}

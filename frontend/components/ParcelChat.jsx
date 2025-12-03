@@ -16,6 +16,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   const [censusExpanded, setCensusExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('summary')
   const [hoveredTab, setHoveredTab] = useState(null)
+  const [showRecommendations, setShowRecommendations] = useState(true)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
           setLoadingCensus(false)
         })
     }
+    setShowRecommendations(true)
   }, [parcel])
 
   // Helper component to render a message bubble with optional truncation
@@ -144,6 +146,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
 
     const userMessage = { id: Date.now(), text: inputValue, sender: 'user' }
     setMessages(prev => [...prev, userMessage])
+    setShowRecommendations(false)
     const question = inputValue
     setInputValue('')
     setIsLoading(true)
@@ -168,6 +171,39 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Start a chat from a recommended prompt: inject user message, switch to chat tab, call backend
+  const startRecommendedChat = async (question) => {
+    if (!question || isLoading) return
+    // hide the recommendation buttons immediately when a recommended topic is chosen
+    setShowRecommendations(false)
+    const userMessage = { id: Date.now(), text: question, sender: 'user' }
+    setMessages(prev => [...prev, userMessage])
+    setInputValue('')
+    setIsLoading(true)
+    // show loading bubble
+    const loadingMessage = { id: Date.now() + 1, text: 'Thinking...', sender: 'bot', isLoading: true }
+    setMessages(prev => [...prev, loadingMessage])
+    setActiveTab('chat')
+    try {
+      const parcelId = parcel && parcel.address ? `Parcel: ${parcel.address}` : 'Parcel'
+      const fullMessage = `${parcelId}\nContext: ${JSON.stringify(parcel)}\nQuestion: ${question}`
+      const data = await callChat(fullMessage)
+      setMessages(prev => {
+        const withoutLoading = prev.filter(m => !m.isLoading)
+        return [...withoutLoading, { id: Date.now() + 2, text: data.message || "Sorry, I couldn't process that request.", sender: 'bot' }]
+      })
+    } catch (err) {
+      console.error('Recommended chat error', err)
+      setMessages(prev => {
+        const withoutLoading = prev.filter(m => !m.isLoading)
+        return [...withoutLoading, { id: Date.now() + 2, text: "Sorry, I'm having trouble connecting to the server.", sender: 'bot' }]
+      })
+    } finally {
+      setIsLoading(false)
+      setTimeout(() => inputRef.current?.focus(), 200)
     }
   }
 
@@ -218,13 +254,13 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
           onMouseLeave={() => setHoveredTab(null)}
           style={{
             padding: '8px 12px',
-            border: 'none',
-            background: 'transparent',
+            border: '1px solid #e6edf3',
+            background: 'white',
             color: activeTab === 'summary' ? '#0f172a' : (hoveredTab === 'summary' ? '#0f172a' : '#475569'),
             cursor: 'pointer',
             fontWeight: 700,
-            borderBottom: activeTab === 'summary' ? '3px solid #0f172a' : (hoveredTab === 'summary' ? '3px solid rgba(15,23,42,0.12)' : '3px solid transparent'),
-            borderRadius: 6,
+            borderBottom: activeTab === 'summary' ? '3px solid #0f172a' : (hoveredTab === 'summary' ? '3px solid rgba(15,23,42,0.12)' : '1px solid #e6edf3'),
+            borderRadius: 8,
             transition: 'color 140ms ease, border-bottom-color 140ms ease'
           }}
         >
@@ -236,13 +272,13 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
           onMouseLeave={() => setHoveredTab(null)}
           style={{
             padding: '8px 12px',
-            border: 'none',
-            background: 'transparent',
+            border: '1px solid #e6edf3',
+            background: 'white',
             color: activeTab === 'chat' ? '#0f172a' : (hoveredTab === 'chat' ? '#0f172a' : '#475569'),
             cursor: 'pointer',
             fontWeight: 700,
-            borderBottom: activeTab === 'chat' ? '3px solid #0f172a' : (hoveredTab === 'chat' ? '3px solid rgba(15,23,42,0.12)' : '3px solid transparent'),
-            borderRadius: 6,
+            borderBottom: activeTab === 'chat' ? '3px solid #0f172a' : (hoveredTab === 'chat' ? '3px solid rgba(15,23,42,0.12)' : '1px solid #e6edf3'),
+            borderRadius: 8,
             transition: 'color 140ms ease, border-bottom-color 140ms ease'
           }}
         >
@@ -254,6 +290,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
       {activeTab === 'summary' && (
         <div style={{ flex: 1, overflowY: 'auto', background: '#fbfbfb', padding: 12 }}>
           <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 18, letterSpacing: 0.3, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial", color: '#0f172a' }}>{parcel.address || 'Selected Parcel'}</div>
+          
           <div style={{ fontSize: 13, color: '#111', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {(() => {
               const props = parcel || {}
@@ -452,12 +489,48 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
 
       {activeTab === 'chat' && (
         <>
-          <div style={{ padding: 12, overflowY: 'auto', flex: 1, background: '#fbfbfb' }}>
-            {messages.map(msg => (
-              <div key={msg.id} style={{ marginBottom: 10, display: 'flex', justifyContent: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
-                <MessageBubble msg={msg} />
-              </div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, background: '#fbfbfb', flex: 1 }}>
+            {showRecommendations && (
+              <>
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, color: '#52606d' }}>Recommended topics to ask about:</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    className="chat-send-button recommendation-button"
+                    onClick={() => startRecommendedChat('Is this property likely to be vacant or at risk of vacancy?')}
+                    title="Is this property likely to be vacant or at risk of vacancy?"
+                    style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e6edf3', background: 'white', cursor: 'pointer', fontSize: 13, color: '#0f172a' }}
+                  >
+                    Vacancy likelihood
+                  </button>
+                  <button
+                    className="chat-send-button recommendation-button"
+                    onClick={() => startRecommendedChat('What nearby amenities (parks, transit, grocery) are within walking distance of this parcel?')}
+                    title="What nearby amenities are within walking distance of this parcel?"
+                    style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e6edf3', background: 'white', cursor: 'pointer', fontSize: 13, color: '#0f172a' }}
+                  >
+                    Nearby amenities
+                  </button>
+                  <button
+                    className="chat-send-button recommendation-button"
+                    onClick={() => startRecommendedChat('What zoning restrictions or development constraints apply to this lot?')}
+                    title="What zoning restrictions or development constraints apply to this lot?"
+                    style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e6edf3', background: 'white', cursor: 'pointer', fontSize: 13, color: '#0f172a' }}
+                  >
+                    Zoning constraints
+                  </button>
+                </div>
+              </>
+            )}
+
+            <div style={{ paddingTop: 8, overflowY: 'auto', flex: 1 }}>
+              {messages.map(msg => (
+                <div key={msg.id} style={{ marginBottom: 10, display: 'flex', justifyContent: msg.sender === 'bot' ? 'flex-start' : 'flex-end' }}>
+                  <MessageBubble msg={msg} />
+                </div>
+              ))}
+            </div>
           </div>
 
           <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: 12, borderTop: 'none', background: '#fbfbfb' }}>

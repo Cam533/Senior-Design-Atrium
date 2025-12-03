@@ -42,6 +42,7 @@ export default function Chat({ selectedParcel = null, onNewChat = null }) {
     return ''
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [showRecommendations, setShowRecommendations] = useState(true)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -51,6 +52,12 @@ export default function Chat({ selectedParcel = null, onNewChat = null }) {
 
   useEffect(() => {
     scrollToBottom()
+  }, [messages])
+
+  // Hide recommendations once the user has asked any question
+  useEffect(() => {
+    const hasUserMessage = messages.some(m => m.sender === 'user')
+    setShowRecommendations(!hasUserMessage)
   }, [messages])
 
   // When selectedParcel changes, scroll chat to bottom and optionally add a small context message
@@ -85,6 +92,7 @@ export default function Chat({ selectedParcel = null, onNewChat = null }) {
     // Add user message
     const userMessage = { id: Date.now(), text: inputValue, sender: 'user' }
     setMessages(prev => [...prev, userMessage])
+    setShowRecommendations(false)
     const currentInput = inputValue
     setInputValue('')
     setIsLoading(true)
@@ -127,6 +135,50 @@ export default function Chat({ selectedParcel = null, onNewChat = null }) {
     }
   }
 
+  const startRecommendedChat = async (question) => {
+    if (!question || isLoading) return
+    // hide the recommendation bubble immediately
+    setShowRecommendations(false)
+    // Add user message
+    const userMessage = { id: Date.now(), text: question, sender: 'user' }
+    setMessages(prev => [...prev, userMessage])
+    setIsLoading(true)
+
+    // Add loading message
+    const loadingMessage = {
+      id: Date.now() + 1,
+      text: 'Thinking...',
+      sender: 'bot',
+      isLoading: true,
+    }
+    setMessages(prev => [...prev, loadingMessage])
+
+    try {
+      const data = await callChat(question)
+      setMessages(prev => {
+        const withoutLoading = prev.filter(msg => !msg.isLoading)
+        return [...withoutLoading, {
+          id: Date.now() + 2,
+          text: data.message || "Sorry, I couldn't process that request.",
+          sender: 'bot'
+        }]
+      })
+    } catch (error) {
+      console.error('Error calling API:', error)
+      setMessages(prev => {
+        const withoutLoading = prev.filter(msg => !msg.isLoading)
+        return [...withoutLoading, {
+          id: Date.now() + 2,
+          text: "Sorry, I'm having trouble connecting to the server. Please make sure the backend is running on http://localhost:8000",
+          sender: 'bot'
+        }]
+      })
+    } finally {
+      setIsLoading(false)
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }
+
   return (
     <div className="chat-container">
       {/* Global action bar with New Chat button */}
@@ -141,10 +193,11 @@ export default function Chat({ selectedParcel = null, onNewChat = null }) {
             } catch (e) { /* ignore */ }
             setMessages(initialMessages)
             setInputValue('')
+              setShowRecommendations(true)
             if (typeof onNewChat === 'function') onNewChat()
             setTimeout(() => inputRef.current?.focus(), 100)
           }}
-        >New Chat</button>
+        >+ New Chat</button>
       </div>
 
       {selectedParcel && (
@@ -170,17 +223,51 @@ export default function Chat({ selectedParcel = null, onNewChat = null }) {
         </div>
       )}
 
+      {/* recommendations will be rendered below the first message inside the messages area */}
+
       <div className="chat-messages">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`chat-message ${msg.sender}`}>
-            <div className="message-content">
-              {msg.sender === 'bot' ? (
-                <ReactMarkdown>{msg.text}</ReactMarkdown>
-              ) : (
-                msg.text
-              )}
+        {messages.map((msg, idx) => (
+          <React.Fragment key={msg.id}>
+            <div className={`chat-message ${msg.sender}`}>
+              <div className="message-content">
+                {msg.sender === 'bot' ? (
+                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+                ) : (
+                  msg.text
+                )}
+              </div>
             </div>
-          </div>
+
+            {idx === 0 && !selectedParcel && showRecommendations && (
+               <div style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
+                <div style={{ background: '#f6f9fb', borderRadius: 12, padding: 10, maxWidth: '100%' }} className="recommendation-inner">
+                  <div style={{ fontSize: 12, color: '#52606d', marginBottom: 8, textAlign: 'right' }}>Recommended topics to ask about:</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="chat-send-button recommendation-button"
+                      onClick={() => startRecommendedChat('What are current development incentives in Philadelphia?')}
+                      style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e6edf3', background: 'white', cursor: 'pointer', fontSize: 13, color: '#0f172a' }}
+                    >Development incentives</button>
+
+                    <button
+                      type="button"
+                      className="chat-send-button recommendation-button"
+                      onClick={() => startRecommendedChat('Where are neighborhoods seeing the most residential development recently?')}
+                      style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e6edf3', background: 'white', cursor: 'pointer', fontSize: 13, color: '#0f172a' }}
+                    >Neighborhood trends</button>
+
+                    <button
+                      type="button"
+                      className="chat-send-button recommendation-button"
+                      onClick={() => startRecommendedChat('What are common zoning constraints for new developments in the city?')}
+                      style={{ padding: '6px 10px', borderRadius: 999, border: '1px solid #e6edf3', background: 'white', cursor: 'pointer', fontSize: 13, color: '#0f172a' }}
+                    >Zoning constraints</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
         ))}
         <div ref={messagesEndRef} />
       </div>
