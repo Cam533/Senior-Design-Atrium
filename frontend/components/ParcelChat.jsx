@@ -22,6 +22,44 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [expandedMessageIds, setExpandedMessageIds] = useState(new Set())
 
+  const scoreMeta = {
+    environmental: {
+      label: 'Environmental',
+      description:
+        'This score reflects environmental quality around the parcel, including nearby green cover and natural features. Higher scores indicate a cleaner, healthier surrounding environment with more tree cover and garden access.',
+    },
+    recreational: {
+      label: 'Recreational',
+      description:
+        'This score measures access to parks and recreational sites nearby. Higher scores mean more and closer recreation opportunities within short walking distance.',
+    },
+    transit: {
+      label: 'Transit',
+      description:
+        'This score captures proximity to public transportation options such as buses, trolleys, or rail. Higher scores indicate more transit stops within a short walk.',
+    },
+    walkability: {
+      label: 'Walkability',
+      description:
+        'This score estimates how walk‑friendly the area is, based on nearby destinations like parks and gardens plus transit access. Higher scores mean more daily needs can be reached on foot.',
+    },
+  }
+
+  const getScoreCategory = (score) => {
+    if (score === null || score === undefined || Number.isNaN(Number(score))) return 'Not available'
+    if (score >= 7) return 'High'
+    if (score >= 4) return 'Moderate'
+    return 'Low'
+  }
+
+  const getScoreMeaning = (score) => {
+    if (score === null || score === undefined || Number.isNaN(Number(score))) {
+      return 'This score is not available for the selected location.'
+    }
+    const category = getScoreCategory(score)
+    return `${score.toFixed(1)} / 10 is considered ${category.toLowerCase()} for this category. Higher values indicate stronger access or better conditions.`
+  }
+
   const toggleMessageExpanded = (id) => {
     setExpandedMessageIds(prev => {
       const next = new Set(prev)
@@ -262,6 +300,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
       boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
       zIndex: 2000,
       overflow: 'hidden',
+      overflowX: 'hidden',
       display: 'flex',
       flexDirection: 'column'
     }}>
@@ -329,7 +368,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
 
       {/* Unified scrollable summary + scores + census area */}
       {activeTab === 'summary' && (
-        <div style={{ flex: 1, overflowY: 'auto', background: '#fbfbfb', padding: 12 }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: '#fbfbfb', padding: '12px 16px' }}>
           <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 18, letterSpacing: 0.3, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial", color: '#0f172a' }}>{parcel.address || 'Selected Parcel'}</div>
           
           <div style={{ fontSize: 13, color: '#111', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -496,6 +535,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                   const raw = scores?.[keyName]
                   const score = Number.isFinite(Number(raw)) ? Number(raw) : null
                   const display = score !== null ? score.toFixed(1) : 'N/A'
+                  const meta = scoreMeta[k]
                   let bg = '#e2e8f0'
                   let color = '#0f172a'
                   if (score !== null) {
@@ -504,15 +544,39 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                     else { bg = '#fee2e2'; color = '#991b1b' }
                   }
                   return (
-                    <div key={k} style={{ minWidth: 140, flex: '0 0 auto', borderRadius: 8, padding: '8px 10px', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ fontSize: 12, color: '#64748b', textTransform: 'capitalize' }}>{k.replace('_',' ')}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ fontWeight: 700, fontSize: 16 }}>{display}</div>
-                        <div style={{ color: '#64748b', fontSize: 12 }}>/10</div>
+                    <div key={k} style={{ width: 380, maxWidth: '100%', flex: '0 0 auto', borderRadius: 10, padding: '12px 18px 12px 14px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{meta?.label ?? k}</div>
+                        <div style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color,
+                          background: score === null ? '#e2e8f0' : bg,
+                          padding: '2px 8px',
+                          borderRadius: 999
+                        }}>
+                          {getScoreCategory(score)}
+                        </div>
                       </div>
-                      <div style={{ height: 8, borderRadius: 6, background: '#f1f5f9', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: score !== null ? Math.min(100, Math.max(0, (score/10)*100)) + '%' : '0%', background: bg, transition: 'width 400ms ease' }} />
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                        <div style={{ fontWeight: 800, fontSize: 22, color }}>{display}</div>
+                        <div style={{ color: '#94a3b8', fontSize: 12 }}>/10</div>
                       </div>
+                      <div style={{ height: 10, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: score !== null ? Math.min(100, Math.max(0, (score / 10) * 100)) + '%' : '0%',
+                          background: score === null ? '#e2e8f0' : bg,
+                          transition: 'width 400ms ease'
+                        }} />
+                      </div>
+                      <details style={{ fontSize: 12, color: '#334155', width: '100%', maxWidth: '100%', paddingRight: 8, paddingLeft: 2 }}>
+                        <summary style={{ cursor: 'pointer', color: '#0f172a', fontWeight: 600 }}>What does this score mean?</summary>
+                        <div style={{ marginTop: 8, lineHeight: 1.4, overflowWrap: 'anywhere', wordBreak: 'break-word', paddingRight: 10, boxSizing: 'border-box', maxWidth: '100%' }}>
+                          <div style={{ marginBottom: 6 }}>{meta?.description}</div>
+                          <div style={{ color: '#475569' }}>{getScoreMeaning(score)}</div>
+                        </div>
+                      </details>
                     </div>
                   )
                 })}
