@@ -33,3 +33,5 @@ Thumbs.db
 
 backend/.venv
 .venv
+.env.local
+.env

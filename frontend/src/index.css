@@ -1,9 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap');
+
 :root {
   --bg: #f7f9fb;
   --text: #0f172a;
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap');
 
 html, body, #root {
   height: 100%;
@@ -76,6 +76,12 @@ body {
   font-size: 0.95rem;
   border-radius: 6px;
   transition: all 0.2s;
+}
+
+.nav-button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.061);
+  cursor: pointer;
 }
 
 .nav-link:hover {
