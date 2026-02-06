@@ -2,7 +2,9 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import Map from '../components/Map'
 import Chat from '../components/Chat'
 import Login from '../components/Auth/Login'
+import Signup from '../components/Auth/Signup'
 import ProfileSetup from '../components/Auth/ProfileSetup'
+import Profile from '../components/Auth/Profile'
 import atriumIcon from '../pics/atrium_icon.png'
 import { useAuth } from './context/AuthContext'
 
@@ -31,16 +33,27 @@ function Topbar() {
           Chat
         </Link>
         {!user ? (
-          <Link
-            to="/login"
-            className={location.pathname === '/login' ? 'nav-link nav-button active' : 'nav-link nav-button'}
-          >
-            Login
-          </Link>
+          <>
+            <Link
+              to="/login"
+              className={location.pathname === '/login' ? 'nav-link nav-button active' : 'nav-link nav-button'}
+            >
+              Login
+            </Link>
+            <Link
+              to="/signup"
+              className={location.pathname === '/signup' ? 'nav-link nav-button active' : 'nav-link nav-button'}
+            >
+              Sign Up
+            </Link>
+          </>
         ) : (
-          <button className="nav-link nav-button" type="button" onClick={logout}>
-            Logout
-          </button>
+          <Link
+            to="/profile"
+            className={location.pathname === '/profile' ? 'nav-link nav-button active' : 'nav-link nav-button'}
+          >
+            Profile
+          </Link>
         )}
       </nav>
     </div>
@@ -76,7 +89,9 @@ export default function App() {
           <Route path="/" element={<MapPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/profile-setup" element={<ProfileSetup />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </div>
     </BrowserRouter>

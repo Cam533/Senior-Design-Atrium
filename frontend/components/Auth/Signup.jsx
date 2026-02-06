@@ -3,17 +3,17 @@ import { useAuth } from '../../src/context/AuthContext'
 import { useNavigate, Link } from 'react-router-dom'
 import '../../src/styles/Auth.css'
 
-export default function Login() {
+export default function Signup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const { login, user } = useAuth()
+  const { signup, user } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
     if (user) {
-      navigate('/')
+      navigate('/profile-setup')
     }
   }, [user, navigate])
 
@@ -22,12 +22,12 @@ export default function Login() {
     setLoading(true)
     setMessage('')
 
-    const { error } = await login(email, password)
+    const { error } = await signup(email, password)
 
     if (error) {
       setMessage(`Error: ${error.message}`)
     } else {
-      setMessage('Logged in successfully.')
+      setMessage('Account created! Please check your email to confirm your account.')
       setEmail('')
       setPassword('')
     }
@@ -38,9 +38,9 @@ export default function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className='brand-auth'>Login to Atrium</h1>
-        <p>Sign in to save parcels, create projects, and build your portfolio.</p>
-        
+        <h1 className="brand-auth">Create your account</h1>
+        <p>Sign up to save parcels, create projects, and build your portfolio.</p>
+
         <form onSubmit={handleSubmit} className="auth-form">
           <input
             type="email"
@@ -54,29 +54,20 @@ export default function Login() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
+            placeholder="Create a password"
             required
             disabled={loading}
           />
           <button type="submit" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
 
         {message && <p className="auth-message">{message}</p>}
 
         <p className="auth-footer">
-          Don't have an account? <Link to="/signup">Sign up</Link>
+          Already have an account? <Link to="/login">Log in</Link>
         </p>
-        <p className="auth-footer">
-          Or continue as a guest to explore the map and chat.
-        </p>
-        <button 
-          className="auth-guest-btn"
-          onClick={() => navigate('/')}
-        >
-          Continue as Guest
-        </button>
       </div>
     </div>
   )

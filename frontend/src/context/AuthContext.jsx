@@ -6,6 +6,7 @@ const AuthContext = createContext({
   session: null,
   loading: true,
   login: async () => ({ error: null }),
+  signup: async () => ({ error: null }),
   logout: async () => ({ error: null }),
 })
 
@@ -41,11 +42,19 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const login = async (email) => {
-    return supabase.auth.signInWithOtp({
+  const login = async (email, password) => {
+    return supabase.auth.signInWithPassword({
       email,
+      password,
+    })
+  }
+
+  const signup = async (email, password) => {
+    return supabase.auth.signUp({
+      email,
+      password,
       options: {
-        emailRedirectTo: `${window.location.origin}/`,
+        emailRedirectTo: `${window.location.origin}/profile-setup`,
       },
     })
   }
@@ -60,6 +69,7 @@ export function AuthProvider({ children }) {
       session,
       loading,
       login,
+      signup,
       logout,
     }),
     [user, session, loading]

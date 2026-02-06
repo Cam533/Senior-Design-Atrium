@@ -16,6 +16,7 @@ export default function ProfileSetup() {
   const [userType, setUserType] = useState('')
   const [organization, setOrganization] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
+  const [otherSpecify, setOtherSpecify] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const { user } = useAuth()
@@ -43,6 +44,7 @@ export default function ProfileSetup() {
           user_type: userType,
           organization: organization || null,
           neighborhood: neighborhood || null,
+          other_specify: userType === 'other' ? otherSpecify : null,
           profile_complete: true,
           created_at: new Date(),
         })
@@ -64,7 +66,7 @@ export default function ProfileSetup() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1>Complete Your Profile</h1>
+        <h1 className="brand-auth">Complete Your Profile</h1>
         <p>Help us understand your needs (you can skip this for now).</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -88,22 +90,38 @@ export default function ProfileSetup() {
           </div>
 
           {(userType === 'business' || userType === 'nonprofit') && (
-            <div className="form-group">
+            <div className="form-group-input">
               <input
                 type="text"
                 value={organization}
                 onChange={(e) => setOrganization(e.target.value)}
                 placeholder="Organization name (optional)"
+                style={{ width: '50%' }}
               />
             </div>
           )}
 
-          <div className="form-group">
+          {userType === 'other' && (
+            <div className="form-group-input">
+              <input
+                type="text"
+                value={otherSpecify}
+                onChange={(e) => setOtherSpecify(e.target.value)}
+                style={{ width: '50%' }}
+                placeholder="Please specify"
+                required
+              />
+            </div>
+          )}
+
+          <div className="auth-form">
+            <label htmlFor="userType">Enter your neighborhood or area of interest:</label>
             <input
               type="text"
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
               placeholder="Neighborhood / Area of interest (optional)"
+              style={{ width: '75%' }}
             />
           </div>
 

@@ -42,7 +42,8 @@
 }
 
 .auth-form input[type="email"],
-.auth-form input[type="text"] {
+.auth-form input[type="text"],
+.auth-form input[type="password"] {
   padding: 12px 14px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -87,10 +88,25 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 5px;
 }
 
 .radio-option {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.form-group-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
 }
