@@ -1,0 +1,229 @@
+// Full-window detailed lot information page
+// Displayed when user clicks "View More" from the parcel summary
+import { useState, useEffect } from 'react'
+import '../styles/LotDetails.css'
+
+export default function LotDetails({ parcel = null, onBack = () => {}, scores: initialScores = null, loadingScores: initialLoadingScores = false, censusData: initialCensusData = null, loadingCensus: initialLoadingCensus = false }) {
+  const [scores, setScores] = useState(initialScores)
+  const [loadingScores, setLoadingScores] = useState(initialLoadingScores)
+  const [censusData, setCensusData] = useState(initialCensusData)
+  const [loadingCensus, setLoadingCensus] = useState(initialLoadingCensus)
+
+  const scoreMeta = {
+    environmental: {
+      label: 'Environmental',
+      description:
+        'This score reflects environmental quality around the parcel, including nearby green cover and natural features. Higher scores indicate a cleaner, healthier surrounding environment with more tree cover and garden access.',
+    },
+    recreational: {
+      label: 'Recreational',
+      description:
+        'This score measures access to parks and recreational sites nearby. Higher scores mean more and closer recreation opportunities within short walking distance.',
+    },
+    transit: {
+      label: 'Transit',
+      description:
+        'This score captures proximity to public transportation options such as buses, trolleys, or rail. Higher scores indicate more transit stops within a short walk.',
+    },
+    walkability: {
+      label: 'Walkability',
+      description:
+        'This score estimates how walk‑friendly the area is, based on nearby destinations like parks and gardens plus transit access. Higher scores mean more daily needs can be reached on foot.',
+    },
+  }
+
+  const getScoreCategory = (score) => {
+    if (score === null || score === undefined || Number.isNaN(Number(score))) return 'Not available'
+    if (score >= 7) return 'High'
+    if (score >= 4) return 'Moderate'
+    return 'Low'
+  }
+
+  const getScoreMeaning = (score) => {
+    if (score === null || score === undefined || Number.isNaN(Number(score))) {
+      return 'This score is not available for the selected location.'
+    }
+    const category = getScoreCategory(score)
+    return `${score.toFixed(1)} / 10 is considered ${category.toLowerCase()} for this category. Higher values indicate stronger access or better conditions.`
+  }
+
+  useEffect(() => {
+    // If scores were passed as props (from ParcelChat), use them directly
+    if (initialScores !== null) {
+      setScores(initialScores)
+      return
+    }
+    
+    if (!parcel || !parcel.lat || !parcel.lon) return
+    
+    setLoadingScores(true)
+    fetch('http://localhost:8000/geographic_scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: parcel.lat, lon: parcel.lon })
+    })
+      .then(r => r.json())
+      .then(data => {
+        setScores(data)
+        setLoadingScores(false)
+      })
+      .catch(err => {
+        console.error('Failed to fetch scores:', err)
+        setLoadingScores(false)
+      })
+  }, [parcel, initialScores])
+
+  if (!parcel) return null
+
+  return (
+    <div className="lot-details-page">
+      {/* Header with back button */}
+      <div className="lot-details-header">
+        <button
+          onClick={onBack}
+          aria-label="Back to map"
+          className="lot-details-back-button"
+        >
+          ←
+        </button>
+        <h1 className="lot-details-title">
+          {parcel.address || 'Lot Details'}
+        </h1>
+      </div>
+
+      {/* Main content area with sidebar layout */}
+      <div className="lot-details-main">
+        {/* Left sidebar for images/street view */}
+        <div className="lot-details-sidebar">
+          <div className="lot-details-image-placeholder">
+            <div className="image-placeholder-text">📷 Images / Street View</div>
+          </div>
+        </div>
+
+        {/* Right content area */}
+        <div className="lot-details-content">
+          {/* Placeholder sections for future content */}
+          <div className="lot-details-section">
+            <h2>Lot Information</h2>
+            
+            {censusData && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                {censusData.category_code_description && (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                    <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 120 }}>Property Type:</div>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{censusData.category_code_description}</div>
+                  </div>
+                )}
+                {censusData.tract_median_income !== null && censusData.tract_median_income !== undefined && (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                    <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 120 }}>Median Income:</div>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>${Math.round(censusData.tract_median_income).toLocaleString()}</div>
+                  </div>
+                )}
+                {censusData.tract_median_age !== null && censusData.tract_median_age !== undefined && (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                    <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 120 }}>Median Age:</div>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{censusData.tract_median_age.toFixed(1)} years</div>
+                  </div>
+                )}
+                {censusData.tract_median_home_value !== null && censusData.tract_median_home_value !== undefined && (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                    <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 120 }}>Median Home Value:</div>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>${Math.round(censusData.tract_median_home_value).toLocaleString()}</div>
+                  </div>
+                )}
+                {censusData.tract_median_rent !== null && censusData.tract_median_rent !== undefined && (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                    <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 120 }}>Median Rent:</div>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>${Math.round(censusData.tract_median_rent).toLocaleString()}/mo</div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {loadingCensus && !censusData && (
+              <p style={{ color: '#64748b', marginBottom: 16 }}>Loading census data...</p>
+            )}
+            
+            <p>More detailed lot information will be displayed here.</p>
+          </div>
+
+          {/* Geographic Scores */}
+          {scores ? (
+            <div className="lot-details-section">
+              <h2>Geographic Scores</h2>
+              <div className="scores-grid">
+                {['environmental','recreational','transit','walkability'].map((k) => {
+                  const keyName = k + '_score'
+                  const raw = scores?.[keyName]
+                  const score = Number.isFinite(Number(raw)) ? Number(raw) : null
+                  const display = score !== null ? score.toFixed(1) : 'N/A'
+                  const meta = scoreMeta[k]
+                  let bg = '#e2e8f0'
+                  let color = '#0f172a'
+                  if (score !== null) {
+                    if (score >= 7) { bg = '#dcfce7'; color = '#166534' }
+                    else if (score >= 4) { bg = '#fef3c7'; color = '#92400e' }
+                    else { bg = '#fee2e2'; color = '#991b1b' }
+                  }
+                  return (
+                    <div key={k} className="score-card" style={{ borderRadius: 10, padding: '14px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', border: '1px solid #e6edf3' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>{meta?.label ?? k}</div>
+                        <div style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color,
+                          background: score === null ? '#e2e8f0' : bg,
+                          padding: '2px 8px',
+                          borderRadius: 999
+                        }}>
+                          {getScoreCategory(score)}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                        <div style={{ fontWeight: 800, fontSize: 22, color }}>{display}</div>
+                        <div style={{ color: '#94a3b8', fontSize: 12 }}>/10</div>
+                      </div>
+                      <div style={{ height: 10, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: score !== null ? Math.min(100, Math.max(0, (score / 10) * 100)) + '%' : '0%',
+                          background: score === null ? '#e2e8f0' : bg,
+                          transition: 'width 400ms ease'
+                        }} />
+                      </div>
+                      <details style={{ fontSize: 12, color: '#334155', width: '100%', maxWidth: '100%', paddingRight: 8, paddingLeft: 2 }}>
+                        <summary style={{ cursor: 'pointer', color: '#0f172a', fontWeight: 600 }}>What does this score mean?</summary>
+                        <div style={{ marginTop: 8, lineHeight: 1.4, overflowWrap: 'anywhere', wordBreak: 'break-word', paddingRight: 10, boxSizing: 'border-box', maxWidth: '100%' }}>
+                          <div style={{ marginBottom: 6 }}>{meta?.description}</div>
+                          <div style={{ color: '#475569' }}>{getScoreMeaning(score)}</div>
+                        </div>
+                      </details>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            loadingScores && (
+              <div className="lot-details-section">
+                <p>Loading scores...</p>
+              </div>
+            )
+          )}
+
+          <div className="lot-details-section">
+            <h2>Development Potential</h2>
+            <p>Development potential and recommendations will be shown here.</p>
+          </div>
+
+          <div className="lot-details-section">
+            <h2>Additional Resources</h2>
+            <p>Additional resources and links will be available here.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

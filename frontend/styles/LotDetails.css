@@ -1,0 +1,141 @@
+.lot-details-page {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  z-index: 2999;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.lot-details-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #eef2f7;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.lot-details-back-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid #e6edf3;
+  background: white;
+  color: #0f172a;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.lot-details-back-button:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.lot-details-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+.lot-details-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.lot-details-sidebar {
+  width: 350px;
+  padding: 24px 24px 24px 24px;
+  border-right: 1px solid #eef2f7;
+  overflow-y: auto;
+}
+
+.lot-details-image-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.image-placeholder-text {
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.lot-details-content {
+  flex: 1;
+  padding: 24px 24px 24px 12px;
+  max-width: 800px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.lot-details-section {
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #e6edf3;
+  background: #fbfbfb;
+}
+
+.lot-details-section h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 12px 0;
+}
+
+.lot-details-section p {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.scores-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .scores-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.score-card details {
+  font-size: 12px;
+  color: #334155;
+  width: 100%;
+  max-width: 100%;
+  padding-right: 8px;
+  padding-left: 2px;
+}
+
+.score-card summary {
+  cursor: pointer;
+  color: #0f172a;
+  font-weight: 600;
+}

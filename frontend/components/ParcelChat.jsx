@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
+import LotDetails from './LotDetails'
 
 const API_URL = 'http://localhost:8000/chat'
 
@@ -17,6 +18,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   const [activeTab, setActiveTab] = useState('summary')
   const [hoveredTab, setHoveredTab] = useState(null)
   const [showRecommendations, setShowRecommendations] = useState(true)
+  const [showDetailsPage, setShowDetailsPage] = useState(false)
   const inputRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
@@ -449,87 +451,11 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
             )}
           </div>
 
-          {/* Collapsible Census inside the same button so the button grows when expanded */}
-          {censusData && (
-            <div style={{ marginTop: 12 }}>
-              <button
-                onClick={() => setCensusExpanded(!censusExpanded)}
-                aria-expanded={censusExpanded}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'stretch',
-                  borderRadius: 8,
-                  border: '1px solid #e6edf3',
-                  background: 'white',
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  padding: 0,
-                  transition: 'box-shadow 200ms ease, transform 200ms ease'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>Census Data</div>
-                  </div>
-                  <div style={{ fontSize: 18, color: '#64748b', transform: censusExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>{'▸'}</div>
-                </div>
-
-                <div style={{
-                  maxHeight: censusExpanded ? 260 : 0,
-                  overflow: 'hidden',
-                  transition: 'max-height 300ms ease, opacity 180ms ease',
-                  opacity: censusExpanded ? 1 : 0,
-                }}>
-                  <div style={{ padding: '10px 12px 14px 12px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-                    {censusData.category_code_description && (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 140, textAlign: 'left' }}>Property Type:</div>
-                        <div style={{ fontWeight: 500, textAlign: 'left' }}>{censusData.category_code_description}</div>
-                      </div>
-                    )}
-                    {/* {censusData.tract_total_pop !== null && censusData.tract_total_pop !== undefined && (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 140, textAlign: 'left' }}>Tract Population:</div>
-                        <div style={{ fontWeight: 500, textAlign: 'left' }}>{Math.round(censusData.tract_total_pop).toLocaleString()}</div>
-                      </div>
-                    )} */}
-                    {censusData.tract_median_income !== null && censusData.tract_median_income !== undefined && (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 140, textAlign: 'left' }}>Median Income:</div>
-                        <div style={{ fontWeight: 500, textAlign: 'left' }}>${Math.round(censusData.tract_median_income).toLocaleString()}</div>
-                      </div>
-                    )}
-                    {censusData.tract_median_age !== null && censusData.tract_median_age !== undefined && (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 140, textAlign: 'left' }}>Median Age:</div>
-                        <div style={{ fontWeight: 500, textAlign: 'left' }}>{censusData.tract_median_age.toFixed(1)} years</div>
-                      </div>
-                    )}
-                    {censusData.tract_median_home_value !== null && censusData.tract_median_home_value !== undefined && (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 140, textAlign: 'left' }}>Median Home Value:</div>
-                        <div style={{ fontWeight: 500, textAlign: 'left' }}>${Math.round(censusData.tract_median_home_value).toLocaleString()}</div>
-                      </div>
-                    )}
-                    {censusData.tract_median_rent !== null && censusData.tract_median_rent !== undefined && (
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <div style={{ fontSize: 13, color: '#475569', fontWeight: 700, minWidth: 140, textAlign: 'left' }}>Median Rent:</div>
-                        <div style={{ fontWeight: 500, textAlign: 'left' }}>${Math.round(censusData.tract_median_rent).toLocaleString()}/mo</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </button>
-            </div>
-          )}
-
           {/* Geographic scores */}
           {scores ? (
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eef2f7' }}>
               <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 14 }}>Geographic Scores</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {['environmental','recreational','transit','walkability'].map((k) => {
                   const keyName = k + '_score'
                   const raw = scores?.[keyName]
@@ -544,25 +470,25 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                     else { bg = '#fee2e2'; color = '#991b1b' }
                   }
                   return (
-                    <div key={k} style={{ width: 380, maxWidth: '100%', flex: '0 0 auto', borderRadius: 10, padding: '12px 18px 12px 14px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box' }}>
+                    <div key={k} style={{ borderRadius: 10, padding: '12px 14px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 8, boxSizing: 'border-box' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{meta?.label ?? k}</div>
+                        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{meta?.label ?? k}</div>
                         <div style={{
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: 700,
                           color,
                           background: score === null ? '#e2e8f0' : bg,
-                          padding: '2px 8px',
+                          padding: '2px 6px',
                           borderRadius: 999
                         }}>
                           {getScoreCategory(score)}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                        <div style={{ fontWeight: 800, fontSize: 22, color }}>{display}</div>
-                        <div style={{ color: '#94a3b8', fontSize: 12 }}>/10</div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                        <div style={{ fontWeight: 800, fontSize: 20, color }}>{display}</div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>/10</div>
                       </div>
-                      <div style={{ height: 10, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden' }}>
+                      <div style={{ height: 8, borderRadius: 999, background: '#f1f5f9', overflow: 'hidden' }}>
                         <div style={{
                           height: '100%',
                           width: score !== null ? Math.min(100, Math.max(0, (score / 10) * 100)) + '%' : '0%',
@@ -570,13 +496,6 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                           transition: 'width 400ms ease'
                         }} />
                       </div>
-                      <details style={{ fontSize: 12, color: '#334155', width: '100%', maxWidth: '100%', paddingRight: 8, paddingLeft: 2 }}>
-                        <summary style={{ cursor: 'pointer', color: '#0f172a', fontWeight: 600 }}>What does this score mean?</summary>
-                        <div style={{ marginTop: 8, lineHeight: 1.4, overflowWrap: 'anywhere', wordBreak: 'break-word', paddingRight: 10, boxSizing: 'border-box', maxWidth: '100%' }}>
-                          <div style={{ marginBottom: 6 }}>{meta?.description}</div>
-                          <div style={{ color: '#475569' }}>{getScoreMeaning(score)}</div>
-                        </div>
-                      </details>
                     </div>
                   )
                 })}
@@ -589,7 +508,35 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
               </div>
             )
           )}
+
+          {/* View More button at bottom */}
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #eef2f7' }}>
+            <button
+              onClick={() => setShowDetailsPage(true)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid #e6edf3',
+                background: '#0f172a',
+                color: 'white',
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+                transition: 'background 140ms ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#1e293b'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#0f172a'}
+            >
+              View More Details
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* Lot Details Page Modal */}
+      {showDetailsPage && (
+        <LotDetails parcel={parcel} onBack={() => setShowDetailsPage(false)} scores={scores} loadingScores={loadingScores} censusData={censusData} loadingCensus={loadingCensus} />
       )}
 
       {activeTab === 'chat' && (
