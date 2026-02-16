@@ -108,6 +108,25 @@ export default function Map() {
   const [showChat, setShowChat] = useState(false);
   const [selectedPolygon, setSelectedPolygon] = useState(null);
   const [showParcelChat, setShowParcelChat] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filters, setFilters] = useState({
+    landTypes: [],
+    councilDistricts: [],
+    zoningDistricts: [],
+    zipCodes: [],
+    minLandRank: null,
+    maxLandRank: null,
+    minShapeArea: null,
+    maxShapeArea: null,
+    minEnvironmentalScore: null,
+    maxEnvironmentalScore: null,
+    minRecreationalScore: null,
+    maxRecreationalScore: null,
+    minTransitScore: null,
+    maxTransitScore: null,
+    minWalkabilityScore: null,
+    maxWalkabilityScore: null,
+  });
 
   const defaultLayerStyle = React.useMemo(() => ({
     color: "#2b8cbe",
@@ -337,6 +356,139 @@ export default function Map() {
       }
     }
   }, [showParcelChat, selectedPolygon, defaultLayerStyle]);
+  // Extract unique filter values from mapData
+  const filterOptions = React.useMemo(() => {
+    if (!mapData || !mapData.features) return { landTypes: [], councilDistricts: [], zoningDistricts: [], zipCodes: [] };
+    
+    const landTypes = new Set();
+    const councilDistricts = new Set();
+    const zoningDistricts = new Set();
+    const zipCodes = new Set();
+    
+    mapData.features.forEach((feature) => {
+      const props = feature.properties || {};
+      if (props.bldg_desc) landTypes.add(props.bldg_desc);
+      if (props.councildistrict) councilDistricts.add(String(props.councildistrict));
+      if (props.zoningbasedistrict) zoningDistricts.add(props.zoningbasedistrict);
+      if (props.zipcode) zipCodes.add(String(props.zipcode));
+    });
+    
+    return {
+      landTypes: Array.from(landTypes).sort(),
+      councilDistricts: Array.from(councilDistricts).sort((a, b) => Number(a) - Number(b)),
+      zoningDistricts: Array.from(zoningDistricts).sort(),
+      zipCodes: Array.from(zipCodes).sort(),
+    };
+  }, [mapData]);
+
+  // Filter mapData based on selected filters
+  const filteredMapData = React.useMemo(() => {
+    if (!mapData || !mapData.features) return mapData;
+    
+    // Check if any filters are active
+    const hasActiveFilters = 
+      filters.landTypes.length > 0 ||
+      filters.councilDistricts.length > 0 ||
+      filters.zoningDistricts.length > 0 ||
+      filters.zipCodes.length > 0 ||
+      filters.minLandRank !== null ||
+      filters.maxLandRank !== null ||
+      filters.minShapeArea !== null ||
+      filters.maxShapeArea !== null ||
+      filters.minEnvironmentalScore !== null ||
+      filters.maxEnvironmentalScore !== null ||
+      filters.minRecreationalScore !== null ||
+      filters.maxRecreationalScore !== null ||
+      filters.minTransitScore !== null ||
+      filters.maxTransitScore !== null ||
+      filters.minWalkabilityScore !== null ||
+      filters.maxWalkabilityScore !== null;
+    
+    // If no filters are active, return all data
+    if (!hasActiveFilters) {
+      return mapData;
+    }
+    
+    // Filter features based on criteria
+    const filteredFeatures = mapData.features.filter((feature) => {
+      const props = feature.properties || {};
+      
+      // Check land types filter
+      if (filters.landTypes.length > 0) {
+        if (!filters.landTypes.includes(props.bldg_desc)) {
+          return false;
+        }
+      }
+      
+      // Check council districts filter
+      if (filters.councilDistricts.length > 0) {
+        const district = String(props.councildistrict || '');
+        if (!filters.councilDistricts.includes(district)) {
+          return false;
+        }
+      }
+      
+      // Check zoning districts filter
+      if (filters.zoningDistricts.length > 0) {
+        if (!filters.zoningDistricts.includes(props.zoningbasedistrict)) {
+          return false;
+        }
+      }
+      
+      // Check ZIP codes filter
+      if (filters.zipCodes.length > 0) {
+        const zip = String(props.zipcode || '');
+        if (!filters.zipCodes.includes(zip)) {
+          return false;
+        }
+      }
+      
+      // Check land rank range filter
+      if (filters.minLandRank !== null || filters.maxLandRank !== null) {
+        const landRank = Number(props.land_rank);
+        if (isNaN(landRank)) {
+          return false; // Exclude if land_rank is not a number
+        }
+        if (filters.minLandRank !== null && landRank < filters.minLandRank) {
+          return false;
+        }
+        if (filters.maxLandRank !== null && landRank > filters.maxLandRank) {
+          return false;
+        }
+      }
+
+      // Check Shape__Area range filter
+      if (filters.minShapeArea !== null || filters.maxShapeArea !== null) {
+        const shapeArea = Number(props.Shape__Area);
+        if (!Number.isFinite(shapeArea)) return false;
+        if (filters.minShapeArea !== null && shapeArea < filters.minShapeArea) return false;
+        if (filters.maxShapeArea !== null && shapeArea > filters.maxShapeArea) return false;
+      }
+
+      // Helper to apply a score range filter if present.
+      // If the feature doesn't have the score, exclude it when that filter is active.
+      const scoreInRange = (raw, min, max) => {
+        if (min === null && max === null) return true;
+        const v = Number(raw);
+        if (!Number.isFinite(v)) return false;
+        if (min !== null && v < min) return false;
+        if (max !== null && v > max) return false;
+        return true;
+      };
+
+      if (!scoreInRange(props.environmental_score, filters.minEnvironmentalScore, filters.maxEnvironmentalScore)) return false;
+      if (!scoreInRange(props.recreational_score, filters.minRecreationalScore, filters.maxRecreationalScore)) return false;
+      if (!scoreInRange(props.transit_score, filters.minTransitScore, filters.maxTransitScore)) return false;
+      if (!scoreInRange(props.walkability_score, filters.minWalkabilityScore, filters.maxWalkabilityScore)) return false;
+      
+      return true;
+    });
+    
+    return {
+      ...mapData,
+      features: filteredFeatures,
+    };
+  }, [mapData, filters]);
 
   // Zoom back out a bit when the parcel chat closes (but only when it was open)
   const prevShowParcelChat = useRef(showParcelChat);
@@ -364,6 +516,29 @@ export default function Map() {
     <div style={{ display: "flex", height: "100%", width: "100%" }}>
       {/* Map Area */}
       <div style={{ flex: 1, position: "relative" }}>
+        {/* Placeholder Button - Left side, top of map */}
+        <button
+          style={{
+            position: "absolute",
+            top: "100px",
+            left: "10px",
+            zIndex: 1000,
+            padding: "10px 20px",
+            backgroundColor: "#fff",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+            fontWeight: "bold",
+          }}
+          onClick={() => {
+            // Placeholder onClick handler
+            setShowFilterModal(true);
+            console.log("Filter button clicked");
+          }}
+        >
+          Filter
+        </button>
         <MapContainer
           center={center}
           zoom={14}
@@ -374,7 +549,7 @@ export default function Map() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {mapData && <ChunkedGeoJSON data={mapData} batchSize={300} options={chunkOptions} />}
+          {filteredMapData && <ChunkedGeoJSON data={filteredMapData} batchSize={300} options={chunkOptions} />}
         </MapContainer>
       </div>
 
@@ -425,6 +600,389 @@ export default function Map() {
           parcel={selectedPolygon}
           onClose={() => setShowParcelChat(false)}
         />
+      )}
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowFilterModal(false);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "8px",
+              padding: "24px",
+              maxWidth: "600px",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              width: "90%",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+                borderBottom: "1px solid #e5e7eb",
+                paddingBottom: "12px",
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "bold" }}>Filter Options</h2>
+              <button
+                onClick={() => setShowFilterModal(false)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: "24px",
+                  color: "#6b7280",
+                  padding: "0",
+                  width: "30px",
+                  height: "30px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ✖
+              </button>
+            </div>
+
+            {/* Land Type Filter */}
+            {/*
+            <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>Land Type</h3>
+              <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "4px", padding: "8px" }}>
+                {filterOptions.landTypes.map((type) => (
+                  <label
+                    key={type}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "6px 0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.landTypes.includes(type)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFilters({ ...filters, landTypes: [...filters.landTypes, type] });
+                        } else {
+                          setFilters({ ...filters, landTypes: filters.landTypes.filter((t) => t !== type) });
+                        }
+                      }}
+                      style={{ marginRight: "8px", cursor: "pointer" }}
+                    />
+                    <span>{type || "N/A"}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            */}
+
+            {/* Council District Filter */}
+            <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>Council District</h3>
+              <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "4px", padding: "8px" }}>
+                {filterOptions.councilDistricts.map((district) => (
+                  <label
+                    key={district}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "6px 0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.councilDistricts.includes(district)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFilters({ ...filters, councilDistricts: [...filters.councilDistricts, district] });
+                        } else {
+                          setFilters({ ...filters, councilDistricts: filters.councilDistricts.filter((d) => d !== district) });
+                        }
+                      }}
+                      style={{ marginRight: "8px", cursor: "pointer" }}
+                    />
+                    <span>District {district}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Zoning District Filter */}
+            <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>Zoning District</h3>
+              <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "4px", padding: "8px" }}>
+                {filterOptions.zoningDistricts.map((zoning) => (
+                  <label
+                    key={zoning}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "6px 0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.zoningDistricts.includes(zoning)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFilters({ ...filters, zoningDistricts: [...filters.zoningDistricts, zoning] });
+                        } else {
+                          setFilters({ ...filters, zoningDistricts: filters.zoningDistricts.filter((z) => z !== zoning) });
+                        }
+                      }}
+                      style={{ marginRight: "8px", cursor: "pointer" }}
+                    />
+                    <span>{zoning || "N/A"}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* ZIP Code Filter */}
+            <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>ZIP Code</h3>
+              <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "4px", padding: "8px" }}>
+                {filterOptions.zipCodes.map((zip) => (
+                  <label
+                    key={zip}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "6px 0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.zipCodes.includes(zip)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFilters({ ...filters, zipCodes: [...filters.zipCodes, zip] });
+                        } else {
+                          setFilters({ ...filters, zipCodes: filters.zipCodes.filter((z) => z !== zip) });
+                        }
+                      }}
+                      style={{ marginRight: "8px", cursor: "pointer" }}
+                    />
+                    <span>{zip}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Land Rank Range Filter */}
+            <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>Land Rank Range</h3>
+              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: "block", marginBottom: "4px", fontSize: "14px", color: "#6b7280" }}>Min</label>
+                  <input
+                    type="number"
+                    value={filters.minLandRank || ""}
+                    onChange={(e) => setFilters({ ...filters, minLandRank: e.target.value ? Number(e.target.value) : null })}
+                    placeholder="Min"
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: "block", marginBottom: "4px", fontSize: "14px", color: "#6b7280" }}>Max</label>
+                  <input
+                    type="number"
+                    value={filters.maxLandRank || ""}
+                    onChange={(e) => setFilters({ ...filters, maxLandRank: e.target.value ? Number(e.target.value) : null })}
+                    placeholder="Max"
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Shape Area Range Filter */}
+            <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>Shape Area Range</h3>
+              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: "block", marginBottom: "4px", fontSize: "14px", color: "#6b7280" }}>Min</label>
+                  <input
+                    type="number"
+                    value={filters.minShapeArea || ""}
+                    onChange={(e) => setFilters({ ...filters, minShapeArea: e.target.value ? Number(e.target.value) : null })}
+                    placeholder="Min"
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: "block", marginBottom: "4px", fontSize: "14px", color: "#6b7280" }}>Max</label>
+                  <input
+                    type="number"
+                    value={filters.maxShapeArea || ""}
+                    onChange={(e) => setFilters({ ...filters, maxShapeArea: e.target.value ? Number(e.target.value) : null })}
+                    placeholder="Max"
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Precomputed Score Filters (0-10) */}
+            <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>Geographic Scores (0–10)</h3>
+
+              {[
+                ["Environmental", "minEnvironmentalScore", "maxEnvironmentalScore"],
+                ["Recreational", "minRecreationalScore", "maxRecreationalScore"],
+                ["Transit Accessibility", "minTransitScore", "maxTransitScore"],
+                ["Walkability", "minWalkabilityScore", "maxWalkabilityScore"],
+              ].map(([label, minKey, maxKey]) => (
+                <div key={label} style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{label}</div>
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.1}
+                      value={filters[minKey] ?? ""}
+                      onChange={(e) => setFilters({ ...filters, [minKey]: e.target.value ? Number(e.target.value) : null })}
+                      placeholder="Min"
+                      style={{
+                        flex: 1,
+                        padding: "8px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "4px",
+                        fontSize: "14px",
+                      }}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.1}
+                      value={filters[maxKey] ?? ""}
+                      onChange={(e) => setFilters({ ...filters, [maxKey]: e.target.value ? Number(e.target.value) : null })}
+                      placeholder="Max"
+                      style={{
+                        flex: 1,
+                        padding: "8px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "4px",
+                        fontSize: "14px",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px", borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
+              <button
+                onClick={() => {
+                  setFilters({
+                    landTypes: [],
+                    councilDistricts: [],
+                    zoningDistricts: [],
+                    zipCodes: [],
+                    minLandRank: null,
+                    maxLandRank: null,
+                    minShapeArea: null,
+                    maxShapeArea: null,
+                    minEnvironmentalScore: null,
+                    maxEnvironmentalScore: null,
+                    minRecreationalScore: null,
+                    maxRecreationalScore: null,
+                    minTransitScore: null,
+                    maxTransitScore: null,
+                    minWalkabilityScore: null,
+                    maxWalkabilityScore: null,
+                  });
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  backgroundColor: "white",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "#374151",
+                }}
+              >
+                Clear All
+              </button>
+              <button
+                onClick={() => {
+                  console.log("Applied filters:", filters);
+                  setShowFilterModal(false);
+                  // Filters are automatically applied via filteredMapData memo
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  borderRadius: "6px",
+                  backgroundColor: "#3b82f6",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "white",
+                }}
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

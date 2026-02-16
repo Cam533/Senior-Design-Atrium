@@ -4,22 +4,14 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 import argparse
+from db_access import get_db_connection
 
 load_dotenv()
 
-def get_rds_connection(database='postgres'):
-    """Create psycopg2 connection to RDS PostgreSQL database"""
-    return psycopg2.connect(
-        host=os.getenv('RDS_HOST'),
-        port=os.getenv('RDS_PORT', '5432'),
-        database=database,
-        user=os.getenv('RDS_USERNAME'),
-        password=os.getenv('RDS_PASSWORD')
-    )
 
 def list_databases():
     """List all databases in the RDS instance"""
-    conn = get_rds_connection('postgres')
+    conn = get_db_connection('postgres')
     cur = conn.cursor()
     
     try:
@@ -56,7 +48,7 @@ def list_databases():
 def drop_database(database_name, confirm=False):
     """Drop a database from the RDS instance"""
     # Connect to postgres database to drop other databases
-    conn = get_rds_connection('postgres')
+    conn = get_db_connection(database_name='postgres')
     conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
     cur = conn.cursor()
     

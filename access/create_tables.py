@@ -1,6 +1,6 @@
 import pandas as pd
 import geopandas as gpd
-from db_access import get_db_connection
+from db_access import get_db_connection_for_db
 import json
 
 def create_table_from_geojson(geojson_path, table_name, conn):
@@ -127,9 +127,75 @@ def create_table_from_csv(csv_path, table_name, conn):
         conn.commit()
     
     print(f"Created table: {table_name}")
+def create_aws_user_table():
+    conn = get_db_connection_for_db('atrium_census')
+    """Create AWS user table"""
+    create_table_sql = f'''
+    CREATE TABLE IF NOT EXISTS aws_user (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        user_type TEXT NOT NULL,
+        organization TEXT,
+        neighborhood TEXT,
+        other_specify TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    '''
+    with conn.cursor() as cur:
+        cur.execute('DROP TABLE IF EXISTS aws_user;')
+        cur.execute(create_table_sql)
+        conn.commit()
+        print(f"Created AWS user table")
+    conn.close()
+
+def create_project_table():
+    conn = get_db_connection_for_db('atrium_census')
+
+    create_table_sql = '''
+    CREATE TABLE IF NOT EXISTS project (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (owner_id) REFERENCES aws_user(id) ON DELETE CASCADE
+    );
+    '''
+
+    with conn.cursor() as cur:
+        cur.execute('DROP TABLE IF EXISTS project CASCADE;')
+        cur.execute(create_table_sql)
+        conn.commit()
+        print("Created project table")
+    conn.close()
+
+
+def create_project_members_table():
+    conn = get_db_connection_for_db('atrium_census')
+
+    create_table_sql = '''
+    CREATE TABLE IF NOT EXISTS project_members (
+        project_id TEXT NOT NULL,
+        member_id TEXT NOT NULL,
+        role TEXT DEFAULT 'viewer',
+        PRIMARY KEY (project_id, member_id),
+        FOREIGN KEY (project_id) REFERENCES project(id) ON DELETE CASCADE,
+        FOREIGN KEY (member_id) REFERENCES aws_user(id) ON DELETE CASCADE
+    );
+    '''
+
+    with conn.cursor() as cur:
+        cur.execute('DROP TABLE IF EXISTS project_members;')
+        cur.execute(create_table_sql)
+        conn.commit()
+        print("Created project members table")
+    conn.close()
+
 
 # Example usage
 if __name__ == "__main__":
+    create_aws_user_table()
+    '''
     import os
     
     conn = get_db_connection()
@@ -139,9 +205,11 @@ if __name__ == "__main__":
     
     # Create tables for your CSV files
     '''
+    '''
     create_table_from_csv('data/PPR_Properties.csv', 'ppr_properties', conn)
     create_table_from_csv('data/PPR_Trails.csv', 'ppr_trails', conn)
     create_table_from_csv('data/Land_Use (1).csv', 'land_use', conn)
+    '''
     '''
 
     # Create table for GeoJSON files
@@ -152,3 +220,5 @@ if __name__ == "__main__":
         print(f" GeoJSON file not found: {geojson_path}")
     
     conn.close()
+    '''
+

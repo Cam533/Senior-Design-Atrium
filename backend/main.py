@@ -33,7 +33,16 @@ def load_vacant_geojson_cache() -> None:
     """
     base = Path(__file__).resolve().parents[1]
     data_dir = base / "data"
-    files = [data_dir / "Vacant_Indicators_Land.geojson", data_dir / "Vacant_Indicators_Bldg.geojson"]
+    # Prefer scored GeoJSONs when available (precomputed geographic scores)
+    land_scored = data_dir / "Vacant_Indicators_Land_scored.geojson"
+    bldg_scored = data_dir / "Vacant_Indicators_Bldg_scored.geojson"
+    land = data_dir / "Vacant_Indicators_Land.geojson"
+    bldg = data_dir / "Vacant_Indicators_Bldg.geojson"
+
+    files = [
+        land_scored if land_scored.exists() else land,
+        bldg_scored if bldg_scored.exists() else bldg,
+    ]
 
     features = []
     for f in files:

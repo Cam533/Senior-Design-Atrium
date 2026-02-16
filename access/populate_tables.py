@@ -72,6 +72,7 @@ def populate_table_from_csv(csv_path, table_name, conn, chunk_size=1000):
             print(f"  Inserted {min(i+chunk_size, len(values))}/{len(values)} rows")
     
     print(f"Populated table: {table_name} with {len(df)} rows")
+    conn.close()
 
 if __name__ == "__main__":
     import os
