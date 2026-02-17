@@ -593,8 +593,56 @@ export default function Map() {
           </div>
         </div>
       )}
+      {selectedPolygon && !showParcelChat && (
+        <button
+          onClick={() => setShowParcelChat(true)}
+          style={{
+            position: "absolute",
+            top: 100,
+            right: 16,
+            zIndex: 1200,
 
-      {/* Independent Parcel Chat (floating) */}
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+
+            padding: "10px 14px",
+            borderRadius: 9999,
+
+            background: "white",
+            color: "#111827",
+            border: "1px solid rgba(0,0,0,0.12)",
+            boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: 0.2,
+
+            cursor: "pointer",
+            userSelect: "none",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.16)"
+            e.currentTarget.style.transform = "translateY(-1px)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.12)"
+            e.currentTarget.style.transform = "translateY(0px)"
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.transform = "translateY(0px) scale(0.98)"
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = "translateY(-1px)"
+          }}
+        >
+          Open Chat
+        </button>
+      )}
+
+
+
+      {/* Independent Parcel Chat (button to open and close) */}
       {showParcelChat && selectedPolygon && (
         <ParcelChat
           parcel={selectedPolygon}

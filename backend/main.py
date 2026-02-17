@@ -2,11 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 import sys
 import os
 import json
 from fastapi.responses import JSONResponse
 from pathlib import Path
+from typing import Optional
+from fastapi import HTTPException
+
 
 # Add parent directory to path so we can import models
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -21,7 +25,10 @@ from models.geographic_scoring import score_location
 from access.db_access import get_db_engine
 
 app = FastAPI()
-engine = get_db_engine()
+# Database name from env (e.g. RDS_DB_NAME); required by get_db_engine()
+#_database_name = os.getenv("RDS_DB_NAME", "postgres")
+_database_name = "atrium_census"
+engine = get_db_engine(_database_name)
 
 # Cache for combined GeoJSON so the map can be served quickly without
 # reading/parsing files on every request.
@@ -33,30 +40,33 @@ def load_vacant_geojson_cache() -> None:
     """
     base = Path(__file__).resolve().parents[1]
     data_dir = base / "data"
-    # Prefer scored GeoJSONs when available (precomputed geographic scores)
+    # Prefer scored GeoJSONs when available; fall back to unscored if load fails (e.g. file too large)
     land_scored = data_dir / "Vacant_Indicators_Land_scored.geojson"
     bldg_scored = data_dir / "Vacant_Indicators_Bldg_scored.geojson"
     land = data_dir / "Vacant_Indicators_Land.geojson"
     bldg = data_dir / "Vacant_Indicators_Bldg.geojson"
 
-    files = [
-        land_scored if land_scored.exists() else land,
-        bldg_scored if bldg_scored.exists() else bldg,
+    pairs = [
+        (land_scored if land_scored.exists() else land, land),
+        (bldg_scored if bldg_scored.exists() else bldg, bldg),
     ]
 
     features = []
-    for f in files:
-        try:
-            with open(f, "r", encoding="utf-8") as fh:
-                gj = json.load(fh)
-                if gj.get("type") == "FeatureCollection":
-                    feats = gj.get("features", [])
-                    features.extend(feats)
-                elif gj.get("type") == "Feature":
-                    features.append(gj)
-        except Exception:
-            # If a file is missing or invalid, skip it.
-            continue
+    for preferred, fallback in pairs:
+        for f in (preferred, fallback):
+            try:
+                with open(f, "r", encoding="utf-8") as fh:
+                    gj = json.load(fh)
+                    if gj.get("type") == "FeatureCollection":
+                        feats = gj.get("features", [])
+                        features.extend(feats)
+                    elif gj.get("type") == "Feature":
+                        features.append(gj)
+                break  # loaded this layer successfully
+            except Exception as e:
+                if f == fallback:
+                    print(f"Warning: could not load GeoJSON for layer {f.name}: {e}")
+                continue
 
     cached_map_geojson["type"] = "FeatureCollection"
     cached_map_geojson["features"] = features
@@ -87,6 +97,22 @@ class NearbyRequest(BaseModel):
     lon: float
     radius_m: int = 100
 
+class AWSUserRequest(BaseModel):
+    id: str
+    email: str
+    user_type: str
+    organization: Optional[str] = None
+    neighborhood: Optional[str] = None
+    other_specify: Optional[str] = None
+    created_at: str
+
+class ProjectRequest(BaseModel):
+    id: str
+    owner_id: str
+    name: str
+    description: str
+    created_at: str
+
 
 @app.get("/")
 async def root():
@@ -100,7 +126,7 @@ async def chat(request: ChatRequest):
 
 @app.post("/census_nearby")
 def census_nearby(req: NearbyRequest):
-    # Query uses column names from ETL: tract_total_pop, tract_median_income, tract_median_age
+    """Return census aggregates near a point. Returns empty results if parcels_enriched is missing."""
     sql = text("""
     SELECT
       census_tract,
@@ -114,9 +140,14 @@ def census_nearby(req: NearbyRequest):
     GROUP BY census_tract
     ORDER BY parcel_count DESC;
     """)
-    with engine.connect() as conn:
-        rows = conn.execute(sql, {"lon": req.lon, "lat": req.lat, "radius": req.radius_m}).mappings().all()
-    return {"results": [dict(r) for r in rows]}
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(sql, {"lon": req.lon, "lat": req.lat, "radius": req.radius_m}).mappings().all()
+        return {"results": [dict(r) for r in rows]}
+    except ProgrammingError as e:
+        if "parcels_enriched" in str(e) or "does not exist" in str(e):
+            return {"results": []}
+        raise
 
 
 @app.get("/map")
@@ -145,9 +176,84 @@ def geographic_scores(req: NearbyRequest):
     scores = score_location(req.lat, req.lon)
     return scores
 
+@app.post("/add-aws-user")
+def add_aws_user(req: AWSUserRequest):
+    """Write user profile to AWS (RDS). Request is logged so you can confirm the backend received it."""
+    print("[add-aws-user] request received for", req.email)
+    sql = text("""
+    INSERT INTO aws_user (id, email, user_type, organization, neighborhood, other_specify, created_at)
+    VALUES (:id, :email, :user_type, :organization, :neighborhood, :other_specify, :created_at)
+    ON CONFLICT (id) DO UPDATE SET
+      email = EXCLUDED.email,
+      user_type = EXCLUDED.user_type,
+      organization = EXCLUDED.organization,
+      neighborhood = EXCLUDED.neighborhood,
+      other_specify = EXCLUDED.other_specify;
+    """)
+    try:
+        # engine.begin() auto-commits if no exception
+        with engine.begin() as conn:
+            conn.execute(sql, {
+                "id": req.id,
+                "email": req.email,
+                "user_type": req.user_type,
+                "organization": req.organization,
+                "neighborhood": req.neighborhood,
+                "other_specify": req.other_specify,
+                "created_at": req.created_at,
+            })
+        return {"status": "ok", "message": "user profile written to AWS"}
+    except ProgrammingError as e:
+        # table missing etc
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/add-project")
+def add_project(req: ProjectRequest):
+    """Write project to AWS (RDS). Request is logged so you can confirm the backend received it."""
+    sql = text("""
+    INSERT INTO project (id, owner_id, name, description, created_at)
+    VALUES (:id, :owner_id, :name, :description, :created_at)
+    """)
+    print("add-project request received for", req)
+    try:
+        with engine.begin() as conn:
+            conn.execute(sql, {
+                "id": req.id,
+                "owner_id": req.owner_id,
+                "name": req.name,
+                "description": req.description,
+                "created_at": req.created_at,
+            })
+        return {"status": "ok", "message": "project written to AWS"}
+    except ProgrammingError as e:
+        # table missing etc
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/projects")
+def get_projects(owner_id: str):
+    """Get all projects for a given owner_id."""
+    sql = text("""
+    SELECT * FROM project WHERE owner_id = :owner_id
+    """)
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(sql, {"owner_id": owner_id}).mappings().all()
+        return {"projects": [dict(r) for r in rows]}
+    except ProgrammingError as e:
+        if "project" in str(e) or "does not exist" in str(e):
+            return {"projects": []}
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @app.post("/parcel_census_data")
 def parcel_census_data(req: NearbyRequest):
-    """Get census and property data for a parcel at given coordinates"""
+    """Get census and property data for a parcel at given coordinates.
+    Returns {"data": None} if parcels_enriched table is missing or no parcel found.
+    """
     sql = text("""
     SELECT
       parcel_number,
@@ -174,10 +280,15 @@ def parcel_census_data(req: NearbyRequest):
     ORDER BY ST_Distance(geom::geography, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography)
     LIMIT 1;
     """)
-    with engine.connect() as conn:
-        row = conn.execute(sql, {"lon": req.lon, "lat": req.lat, "radius": req.radius_m}).mappings().fetchone()
-    
-    if row:
-        return {"data": dict(row)}
-    else:
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(sql, {"lon": req.lon, "lat": req.lat, "radius": req.radius_m}).mappings().fetchone()
+        if row:
+            return {"data": dict(row)}
         return {"data": None}
+    except ProgrammingError as e:
+        if "parcels_enriched" in str(e) or "does not exist" in str(e):
+            return {"data": None}
+        raise
+
+

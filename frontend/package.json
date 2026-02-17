@@ -14,7 +14,8 @@
     "react-dom": "^18.2.0",
     "react-leaflet": "^4.2.1",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.9.6"
+    "react-router-dom": "^7.9.6",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",

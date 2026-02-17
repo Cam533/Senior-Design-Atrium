@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
 import Map from '../components/Map'
 import Chat from '../components/Chat'
+import Projects from '../components/Projects'
 import Login from '../components/Auth/Login'
 import Signup from '../components/Auth/Signup'
 import ProfileSetup from '../components/Auth/ProfileSetup'
@@ -31,6 +32,12 @@ function Topbar() {
           className={location.pathname === '/chat' ? 'nav-link nav-button active' : 'nav-link nav-button'}
         >
           Chat
+        </Link>
+        <Link
+          to="/projects"
+          className={location.pathname === '/projects' ? 'nav-link nav-button active' : 'nav-link nav-button'}
+        >
+          Projects
         </Link>
         {!user ? (
           <>
@@ -80,6 +87,15 @@ function ChatPage() {
   )
 }
 
+function ProjectsPage() {
+  return (
+    <main className="main-content">
+      <div className="projects-container">
+        <Projects />
+      </div>
+    </main>
+  )
+}
 export default function App() {
   return (
     <BrowserRouter>
@@ -88,6 +104,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<MapPage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/profile-setup" element={<ProfileSetup />} />

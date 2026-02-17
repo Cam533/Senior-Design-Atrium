@@ -194,7 +194,7 @@ def create_project_members_table():
 
 # Example usage
 if __name__ == "__main__":
-    create_aws_user_table()
+    create_project_table()
     '''
     import os
     
