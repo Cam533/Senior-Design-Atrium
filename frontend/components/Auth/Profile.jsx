@@ -23,8 +23,16 @@ export default function Profile() {
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const { user, logout } = useAuth()
+  const [deleting, setDeleting] = useState(false)
+  const [activeTab, setActiveTab] = useState('profile')
+  const { user, session, logout } = useAuth()
   const navigate = useNavigate()
+
+  const TABS = [
+    { id: 'profile', label: 'Profile' },
+    { id: 'preferences', label: 'Preferences' },
+    { id: 'account', label: 'Security' },
+  ]
 
   useEffect(() => {
     if (!user) {
@@ -130,6 +138,35 @@ export default function Profile() {
     navigate('/login')
   }
 
+  const handleDeleteAccount = async () => {
+    const token = session?.access_token
+    if (!token) {
+      setError('Not signed in.')
+      return
+    }
+    setDeleting(true)
+    setError('')
+    try {
+      const res = await fetch('http://localhost:8000/delete-account', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.detail || res.statusText || 'Failed to delete account')
+      }
+      await logout()
+      navigate('/')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (loadingProfile) {
     return (
       <div className="auth-container">
@@ -142,18 +179,32 @@ export default function Profile() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1 className="brand-auth">Your Profile</h1>
-        <p>Manage your account settings and preferences.</p>
-        {user?.created_at && (
-          <p className="profile-date">Account created: {new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-        )}
-        {user?.last_sign_in_at && (
-          <p className="profile-date">Last signed in: {new Date(user.last_sign_in_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-        )}
+      <div className="profile-page">
+        <nav className="profile-tabs">
+          <h1 className="profile-tabs-title">Your Profile</h1>
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`profile-tab ${activeTab === tab.id ? 'profile-tab-active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+        <div className="profile-content">
+          {activeTab === 'profile' && (
+            <>
+              <p className="profile-intro">Manage your account settings and preferences.</p>
+              {user?.created_at && (
+                <p className="profile-date">Account created: {new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              )}
+              {user?.last_sign_in_at && (
+                <p className="profile-date">Last signed in: {new Date(user.last_sign_in_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              )}
 
-        {/* Profile Information Section */}
-        <form onSubmit={handleUpdateProfile} className="auth-form">
+              <form onSubmit={handleUpdateProfile} className="auth-form">
           <h3>Profile Information</h3>
           
           <div className="form-group">
@@ -222,64 +273,70 @@ export default function Profile() {
             {loading ? 'Updating...' : 'Update Profile'}
           </button>
         </form>
+            </>
+          )}
 
-        {/* Change Password Section */}
-        <form onSubmit={handleChangePassword} className="auth-form" style={{ marginTop: '24px' }}>
-          <h3 style={{ marginBottom: '8px' }}>Change Password</h3>
-          
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="New password"
-            disabled={loading}
-            style={{ marginBottom: '8px' }}
-          />
+          {activeTab === 'preferences' && (
+            <>
+              <h2 className="profile-content-heading">Preferences</h2>
+              <p className="profile-date">
+                Notification and display preferences can be configured here.
+              </p>
+            </>
+          )}
 
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm new password"
-            disabled={loading}
-            style={{ marginBottom: '12px' }}
-          />
+          {activeTab === 'account' && (
+            <>
+              <h2 className="profile-content-heading">Security</h2>
+              <p className="profile-delete-warning" style={{ marginBottom: '20px' }}>
+                Change your password, sign out, or permanently delete your account.
+              </p>
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Changing...' : 'Change Password'}
-          </button>
-        </form>
+              <h3 className="profile-section-label">Change password</h3>
+              <form onSubmit={handleChangePassword} className="auth-form profile-security-form">
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="New password"
+                  disabled={loading}
+                />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  disabled={loading}
+                />
+                <button type="submit" disabled={loading}>
+                  {loading ? 'Changing...' : 'Change Password'}
+                </button>
+              </form>
 
-        {message && <p className="auth-message" style={{ color: '#059669' }}>{message}</p>}
-        {error && <p className="auth-error">{error}</p>}
+              <h3 className="profile-section-label">Logout</h3>
+              <button type="button" onClick={handleLogout} className="auth-logout-btn">
+                Logout
+              </button>
 
-        {/* Logout Button */}
-        <button 
-          onClick={handleLogout}
-          style={{ 
-            marginTop: '24px', 
-            width: '100%',
-            padding: '12px 14px',
-            border: '1px solid #dc2626',
-            borderRadius: '8px',
-            background: '#fff',
-            color: '#dc2626',
-            fontWeight: '600',
-            cursor: 'pointer',
-            fontSize: '0.95rem',
-            transition: 'all 0.2s'
-          }}
-          onMouseOver={(e) => {
-            e.target.style.background = '#dc2626'
-            e.target.style.color = '#fff'
-          }}
-          onMouseOut={(e) => {
-            e.target.style.background = '#fff'
-            e.target.style.color = '#dc2626'
-          }}
-        >
-          Logout
-        </button>
+              <h3 className="profile-section-label">Delete account</h3>
+              <p className="profile-delete-warning">
+                This permanently deletes your account and cannot be undone.
+              </p>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="auth-logout-btn"
+                style={{ marginTop: '8px' }}
+              >
+                {deleting ? 'Deleting...' : 'Permanently delete my account'}
+              </button>
+            </>
+          )}
+
+          {message && <p className="auth-message" style={{ color: '#059669' }}>{message}</p>}
+          {error && <p className="auth-error">{error}</p>}
+        </div>
       </div>
     </div>
   )

@@ -1,9 +1,92 @@
 .auth-container {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 24px;
   width: 100%;
+}
+
+.profile-page {
+  display: flex;
+  width: 100%;
+  max-width: 960px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  min-height: 400px;
+}
+
+.profile-tabs {
+  width: 140px;
+  flex-shrink: 0;
+  padding: 16px 0 16px 16px;
+  border-right: 1px solid #e2e8f0;
+}
+
+.profile-tabs-title {
+  font-family: 'Montserrat', Inter, system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 12px;
+  padding: 0 8px 0 0;
+}
+
+.profile-tab {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #475569;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.profile-tab:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.profile-tab-active {
+  background: #0f172a;
+  color: #fff;
+}
+
+.profile-tab-active:hover {
+  background: #0f172a;
+  color: #fff;
+}
+
+.profile-content {
+  flex: 1;
+  padding: 24px 32px 32px 32px;
+  min-width: 0;
+}
+
+.profile-content-heading {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 12px;
+}
+
+.profile-section-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 20px 0 8px;
+}
+
+.profile-section-label:first-of-type {
+  margin-top: 0;
+}
+
+.profile-security-form {
+  margin-bottom: 8px;
 }
 
 .auth-card {
@@ -111,8 +194,55 @@
   padding-bottom: 10px;
 }
 
+.profile-intro {
+  font-size: 1.1rem;
+  color: #0f172a;
+  margin: 0 0 12px;
+}
+
 .profile-date {
   font-size: 0.9rem;
   color: #64748b;
   margin: 0 0 8px;
+}
+
+.profile-delete-section {
+  margin-top: 8px;
+}
+
+.profile-delete-warning {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0 0 12px;
+}
+
+.profile-delete-input {
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  max-width: 280px;
+}
+
+.auth-logout-btn {
+  margin-top: 24px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  background: #fff;
+  color: #dc2626;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.auth-logout-btn:hover:not(:disabled) {
+  background: #dc2626;
+  color: #fff;
+}
+
+.auth-logout-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

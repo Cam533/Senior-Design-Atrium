@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -6,6 +6,7 @@ from sqlalchemy.exc import ProgrammingError
 import sys
 import os
 import json
+import requests
 from fastapi.responses import JSONResponse
 from pathlib import Path
 from typing import Optional
@@ -292,3 +293,41 @@ def parcel_census_data(req: NearbyRequest):
         raise
 
 
+@app.post("/delete-account")
+def delete_account(request: Request):
+    """Delete the authenticated user's Supabase Auth account. Requires Authorization: Bearer <access_token>."""
+    supabase_url = os.getenv("SUPABASE_URL")
+    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not service_role_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Delete account is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+        )
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
+    access_token = auth_header[7:].strip()
+    base = supabase_url.rstrip("/")
+    get_user_url = f"{base}/auth/v1/user"
+    get_headers = {"Authorization": f"Bearer {access_token}", "apikey": service_role_key}
+    try:
+        r = requests.get(get_user_url, headers=get_headers, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        user_id = data.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Could not identify user.")
+    except requests.RequestException as e:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    delete_url = f"{base}/auth/v1/admin/users/{user_id}"
+    delete_headers = {"Authorization": f"Bearer {service_role_key}", "apikey": service_role_key}
+    try:
+        del_r = requests.delete(delete_url, headers=delete_headers, timeout=10)
+        if del_r.status_code == 404:
+            return {"status": "ok", "message": "User already deleted."}
+        del_r.raise_for_status()
+    except requests.RequestException as e:
+        resp = getattr(e, "response", None)
+        msg = resp.text if resp is not None else str(e)
+        raise HTTPException(status_code=502, detail="Failed to delete user: " + msg)
+    return {"status": "ok", "message": "Account deleted."}
