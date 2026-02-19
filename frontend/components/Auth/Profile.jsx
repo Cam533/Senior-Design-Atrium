@@ -145,6 +145,12 @@ export default function Profile() {
       <div className="auth-card">
         <h1 className="brand-auth">Your Profile</h1>
         <p>Manage your account settings and preferences.</p>
+        {user?.created_at && (
+          <p className="profile-date">Account created: {new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+        )}
+        {user?.last_sign_in_at && (
+          <p className="profile-date">Last signed in: {new Date(user.last_sign_in_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+        )}
 
         {/* Profile Information Section */}
         <form onSubmit={handleUpdateProfile} className="auth-form">

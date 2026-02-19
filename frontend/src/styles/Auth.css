@@ -110,3 +110,9 @@
   gap: 8px;
   padding-bottom: 10px;
 }
+
+.profile-date {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0 0 8px;
+}
