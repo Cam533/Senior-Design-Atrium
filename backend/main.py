@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Optional
 from fastapi import HTTPException
 
+from dotenv import load_dotenv
+
+# Load .env from project root (parent of backend/)
+_env_path = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(_env_path)
 
 # Add parent directory to path so we can import models
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,7 +34,9 @@ app = FastAPI()
 # Database name from env (e.g. RDS_DB_NAME); required by get_db_engine()
 #_database_name = os.getenv("RDS_DB_NAME", "postgres")
 _database_name = "atrium_census"
-engine = get_db_engine(_database_name)
+engine = get_db_engine(_database_name)  # None if RDS_* not set in .env
+
+_RDS_REQUIRED_MSG = "RDS database not configured. Set RDS_HOST, RDS_USERNAME, and RDS_PASSWORD in .env for map/parcel/census features."
 
 # Cache for combined GeoJSON so the map can be served quickly without
 # reading/parsing files on every request.
@@ -128,6 +135,8 @@ async def chat(request: ChatRequest):
 @app.post("/census_nearby")
 def census_nearby(req: NearbyRequest):
     """Return census aggregates near a point. Returns empty results if parcels_enriched is missing."""
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
     sql = text("""
     SELECT
       census_tract,
@@ -180,6 +189,8 @@ def geographic_scores(req: NearbyRequest):
 @app.post("/add-aws-user")
 def add_aws_user(req: AWSUserRequest):
     """Write user profile to AWS (RDS). Request is logged so you can confirm the backend received it."""
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
     print("[add-aws-user] request received for", req.email)
     sql = text("""
     INSERT INTO aws_user (id, email, user_type, organization, neighborhood, other_specify, created_at)
@@ -213,6 +224,8 @@ def add_aws_user(req: AWSUserRequest):
 @app.post("/add-project")
 def add_project(req: ProjectRequest):
     """Write project to AWS (RDS). Request is logged so you can confirm the backend received it."""
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
     sql = text("""
     INSERT INTO project (id, owner_id, name, description, created_at)
     VALUES (:id, :owner_id, :name, :description, :created_at)
@@ -237,6 +250,8 @@ def add_project(req: ProjectRequest):
 @app.get("/projects")
 def get_projects(owner_id: str):
     """Get all projects for a given owner_id."""
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
     sql = text("""
     SELECT * FROM project WHERE owner_id = :owner_id
     """)
@@ -255,6 +270,8 @@ def parcel_census_data(req: NearbyRequest):
     """Get census and property data for a parcel at given coordinates.
     Returns {"data": None} if parcels_enriched table is missing or no parcel found.
     """
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
     sql = text("""
     SELECT
       parcel_number,
@@ -293,9 +310,14 @@ def parcel_census_data(req: NearbyRequest):
         raise
 
 
+def _supabase_headers(service_role_key: str):
+    return {"Authorization": f"Bearer {service_role_key}", "apikey": service_role_key, "Content-Type": "application/json"}
+
+
 @app.post("/delete-account")
 def delete_account(request: Request):
-    """Delete the authenticated user's Supabase Auth account. Requires Authorization: Bearer <access_token>."""
+    """Delete the authenticated user's Supabase Auth account and their row in public.users.
+    Also removes their avatar from Storage if present. Requires Authorization: Bearer <access_token>."""
     supabase_url = os.getenv("SUPABASE_URL")
     service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not supabase_url or not service_role_key:
@@ -319,10 +341,41 @@ def delete_account(request: Request):
             raise HTTPException(status_code=401, detail="Could not identify user.")
     except requests.RequestException as e:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
-    delete_url = f"{base}/auth/v1/admin/users/{user_id}"
-    delete_headers = {"Authorization": f"Bearer {service_role_key}", "apikey": service_role_key}
+
+    admin_headers = _supabase_headers(service_role_key)
+
+    # 1. Delete user's row in public.users (Supabase Postgres)
     try:
-        del_r = requests.delete(delete_url, headers=delete_headers, timeout=10)
+        rest_delete = requests.delete(
+            f"{base}/rest/v1/users?id=eq.{user_id}",
+            headers={**admin_headers, "Prefer": "return=minimal"},
+            timeout=10,
+        )
+        if rest_delete.status_code not in (200, 204):
+            pass  # Row may not exist; continue to auth delete
+    except requests.RequestException:
+        pass
+
+    # 2. Remove avatar files from Storage (bucket: avatars, keys like <user_id>.*)
+    try:
+        list_resp = requests.post(
+            f"{base}/storage/v1/object/list/avatars",
+            headers=admin_headers,
+            json={"prefix": user_id, "limit": 20},
+            timeout=10,
+        )
+        if list_resp.status_code == 200:
+            for obj in list_resp.json() or []:
+                name = obj.get("name")
+                if name:
+                    requests.delete(f"{base}/storage/v1/object/avatars/{name}", headers=admin_headers, timeout=10)
+    except requests.RequestException:
+        pass
+
+    # 3. Delete the auth user (required for login to stop working)
+    delete_url = f"{base}/auth/v1/admin/users/{user_id}"
+    try:
+        del_r = requests.delete(delete_url, headers=admin_headers, timeout=10)
         if del_r.status_code == 404:
             return {"status": "ok", "message": "User already deleted."}
         del_r.raise_for_status()

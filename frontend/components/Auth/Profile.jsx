@@ -42,6 +42,7 @@ export default function Profile() {
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageTab, setMessageTab] = useState(null) // which tab the message belongs to
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
@@ -117,6 +118,7 @@ export default function Profile() {
       if (upsertError) throw upsertError
 
       setMessage('Profile updated successfully!')
+      setMessageTab('profile')
     } catch (err) {
       setError(err.message)
     }
@@ -154,15 +156,21 @@ export default function Profile() {
       const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
       const newUrl = urlData?.publicUrl ?? ''
 
-      const { error: updateError } = await supabase
+      const { data: updatedRow, error: updateError } = await supabase
         .from('users')
         .update({ avatar_url: newUrl })
         .eq('id', user.id)
+        .select('avatar_url')
+        .single()
 
       if (updateError) throw updateError
+      if (!updatedRow?.avatar_url) {
+        throw new Error('Profile could not be updated. Check that you have permission to update your profile.')
+      }
 
-      setAvatarUrl(newUrl)
+      setAvatarUrl(updatedRow.avatar_url)
       setMessage('Profile picture updated.')
+      setMessageTab('profile')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -197,6 +205,7 @@ export default function Profile() {
       if (updateError) throw updateError
 
       setMessage('Password changed successfully!')
+      setMessageTab('account')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err) {
@@ -454,7 +463,7 @@ export default function Profile() {
             </>
           )}
 
-          {message && <p className="auth-message" style={{ color: '#059669' }}>{message}</p>}
+          {message && messageTab === activeTab && <p className="auth-message" style={{ color: '#059669' }}>{message}</p>}
           {error && <p className="auth-error">{error}</p>}
         </div>
       </div>
