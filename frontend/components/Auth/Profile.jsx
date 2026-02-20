@@ -12,7 +12,26 @@ const USER_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
+const AVATAR_BUCKET = 'avatars'
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
+const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
+function getInitials(firstName, lastName, email) {
+  const placeholderLike = (s) => /^(first|last)(\s+name)?$/i.test((s || '').trim())
+  const first = (firstName || '').trim()
+  const last = (lastName || '').trim()
+  const hasFirst = first && !placeholderLike(first)
+  const hasLast = last && !placeholderLike(last)
+  if (hasFirst && hasLast) return `${first[0]}${last[0]}`.toUpperCase()
+  if (hasFirst) return first[0].toUpperCase()
+  if (email) return email[0].toUpperCase()
+  return '?'
+}
+
 export default function Profile() {
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [userType, setUserType] = useState('')
   const [organization, setOrganization] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
@@ -21,10 +40,20 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(true)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageTab, setMessageTab] = useState(null) // which tab the message belongs to
   const [error, setError] = useState('')
-  const { user, logout } = useAuth()
+  const [deleting, setDeleting] = useState(false)
+  const [activeTab, setActiveTab] = useState('profile')
+  const { user, session, logout } = useAuth()
   const navigate = useNavigate()
+
+  const TABS = [
+    { id: 'profile', label: 'Profile' },
+    { id: 'preferences', label: 'Preferences' },
+    { id: 'account', label: 'Security' },
+  ]
 
   useEffect(() => {
     if (!user) {
@@ -46,6 +75,9 @@ export default function Profile() {
         }
 
         if (data) {
+          setFirstName(data.first_name || '')
+          setLastName(data.last_name || '')
+          setAvatarUrl(data.avatar_url || '')
           setUserType(data.user_type || '')
           setOrganization(data.organization || '')
           setNeighborhood(data.neighborhood || '')
@@ -73,6 +105,9 @@ export default function Profile() {
         .upsert({
           id: user.id,
           email: user.email,
+          first_name: firstName.trim() || null,
+          last_name: lastName.trim() || null,
+          avatar_url: avatarUrl || null,
           user_type: userType,
           organization: organization || null,
           neighborhood: neighborhood || null,
@@ -82,11 +117,65 @@ export default function Profile() {
 
       if (upsertError) throw upsertError
       setMessage('Profile updated successfully!')
+      setMessageTab('profile')
     } catch (err) {
       setError(err.message)
     }
 
     setLoading(false)
+  }
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !user?.id) return
+
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      setError('Please choose a JPEG, PNG, GIF, or WebP image.')
+      return
+    }
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      setError('Image must be 2MB or smaller.')
+      return
+    }
+
+    setUploadingAvatar(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `${user.id}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, file, { upsert: true, contentType: file.type })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
+      const newUrl = urlData?.publicUrl ?? ''
+
+      const { data: updatedRow, error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: newUrl })
+        .eq('id', user.id)
+        .select('avatar_url')
+        .single()
+
+      if (updateError) throw updateError
+      if (!updatedRow?.avatar_url) {
+        throw new Error('Profile could not be updated. Check that you have permission to update your profile.')
+      }
+
+      setAvatarUrl(updatedRow.avatar_url)
+      setMessage('Profile picture updated.')
+      setMessageTab('profile')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setUploadingAvatar(false)
+      e.target.value = ''
+    }
   }
 
   const handleChangePassword = async (e) => {
@@ -115,6 +204,7 @@ export default function Profile() {
       if (updateError) throw updateError
 
       setMessage('Password changed successfully!')
+      setMessageTab('account')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err) {
@@ -129,6 +219,35 @@ export default function Profile() {
     navigate('/login')
   }
 
+  const handleDeleteAccount = async () => {
+    const token = session?.access_token
+    if (!token) {
+      setError('Not signed in.')
+      return
+    }
+    setDeleting(true)
+    setError('')
+    try {
+      const res = await fetch('http://localhost:8000/delete-account', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.detail || res.statusText || 'Failed to delete account')
+      }
+      await logout()
+      navigate('/')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (loadingProfile) {
     return (
       <div className="auth-container">
@@ -141,13 +260,80 @@ export default function Profile() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1 className="brand-auth">Your Profile</h1>
-        <p>Manage your account settings and preferences.</p>
+      <div className="profile-page">
+        <nav className="profile-tabs">
+          <h1 className="profile-tabs-title">Your Profile</h1>
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`profile-tab ${activeTab === tab.id ? 'profile-tab-active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+        <div className="profile-content">
+          {activeTab === 'profile' && (
+            <>
+              <p className="profile-intro">Manage your account settings and preferences.</p>
+              {user?.created_at && (
+                <p className="profile-date">Account created: {new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              )}
+              {user?.last_sign_in_at && (
+                <p className="profile-date">Last signed in: {new Date(user.last_sign_in_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+              )}
 
-        {/* Profile Information Section */}
-        <form onSubmit={handleUpdateProfile} className="auth-form">
+              <form onSubmit={handleUpdateProfile} className="auth-form">
           <h3>Profile Information</h3>
+
+          <div className="profile-avatar-section">
+            <div className="profile-avatar-wrap">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Profile" className="profile-avatar profile-avatar-img" />
+              ) : (
+                <div className="profile-avatar profile-avatar-initials" aria-hidden>
+                  {getInitials(firstName, lastName, user?.email)}
+                </div>
+              )}
+            </div>
+            <div className="profile-avatar-actions">
+              <label className="profile-avatar-upload-label">
+                <input
+                  type="file"
+                  accept={ALLOWED_AVATAR_TYPES.join(',')}
+                  onChange={handleAvatarUpload}
+                  disabled={uploadingAvatar}
+                  className="profile-avatar-input"
+                />
+                {uploadingAvatar ? 'Uploading...' : 'Upload photo'}
+              </label>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="firstName">First name</label>
+              <input
+                id="firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="lastName">Last name</label>
+              <input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+              />
+            </div>
+          </div>
           
           <div className="form-group">
             <label>Email</label>
@@ -215,64 +401,70 @@ export default function Profile() {
             {loading ? 'Updating...' : 'Update Profile'}
           </button>
         </form>
+            </>
+          )}
 
-        {/* Change Password Section */}
-        <form onSubmit={handleChangePassword} className="auth-form" style={{ marginTop: '24px' }}>
-          <h3 style={{ marginBottom: '8px' }}>Change Password</h3>
-          
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="New password"
-            disabled={loading}
-            style={{ marginBottom: '8px' }}
-          />
+          {activeTab === 'preferences' && (
+            <>
+              <h2 className="profile-content-heading">Preferences</h2>
+              <p className="profile-date">
+                Notification and display preferences can be configured here.
+              </p>
+            </>
+          )}
 
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm new password"
-            disabled={loading}
-            style={{ marginBottom: '12px' }}
-          />
+          {activeTab === 'account' && (
+            <>
+              <h2 className="profile-content-heading">Security</h2>
+              <p className="profile-delete-warning" style={{ marginBottom: '20px' }}>
+                Change your password, sign out, or permanently delete your account.
+              </p>
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Changing...' : 'Change Password'}
-          </button>
-        </form>
+              <h3 className="profile-section-label">Change password</h3>
+              <form onSubmit={handleChangePassword} className="auth-form profile-security-form">
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="New password"
+                  disabled={loading}
+                />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  disabled={loading}
+                />
+                <button type="submit" disabled={loading}>
+                  {loading ? 'Changing...' : 'Change Password'}
+                </button>
+              </form>
 
-        {message && <p className="auth-message" style={{ color: '#059669' }}>{message}</p>}
-        {error && <p className="auth-error">{error}</p>}
+              <h3 className="profile-section-label">Logout</h3>
+              <button type="button" onClick={handleLogout} className="auth-logout-btn">
+                Logout
+              </button>
 
-        {/* Logout Button */}
-        <button 
-          onClick={handleLogout}
-          style={{ 
-            marginTop: '24px', 
-            width: '100%',
-            padding: '12px 14px',
-            border: '1px solid #dc2626',
-            borderRadius: '8px',
-            background: '#fff',
-            color: '#dc2626',
-            fontWeight: '600',
-            cursor: 'pointer',
-            fontSize: '0.95rem',
-            transition: 'all 0.2s'
-          }}
-          onMouseOver={(e) => {
-            e.target.style.background = '#dc2626'
-            e.target.style.color = '#fff'
-          }}
-          onMouseOut={(e) => {
-            e.target.style.background = '#fff'
-            e.target.style.color = '#dc2626'
-          }}
-        >
-          Logout
-        </button>
+              <h3 className="profile-section-label">Delete account</h3>
+              <p className="profile-delete-warning">
+                This permanently deletes your account and cannot be undone.
+              </p>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="auth-logout-btn"
+                style={{ marginTop: '8px' }}
+              >
+                {deleting ? 'Deleting...' : 'Permanently delete my account'}
+              </button>
+            </>
+          )}
+
+          {message && messageTab === activeTab && <p className="auth-message" style={{ color: '#059669' }}>{message}</p>}
+          {error && <p className="auth-error">{error}</p>}
+        </div>
       </div>
     </div>
   )

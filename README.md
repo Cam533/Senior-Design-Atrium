@@ -50,6 +50,29 @@ Atrium addresses this by:
 * User authentication and profile management
 * Ability to save addresses, insights, and recommendations
 
+**Delete account (Supabase):** The backend deletes the user in Supabase Auth and cleans up their row in `public.users` and their avatar in Storage. To enable it:
+
+1. In [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Settings** → **API**: copy **Project URL** and **service_role** key (under "Project API keys").
+2. Set environment variables for the backend:
+   - `SUPABASE_URL` = Project URL (e.g. `https://xxxx.supabase.co`)
+   - `SUPABASE_SERVICE_ROLE_KEY` = service_role key (keep secret; never expose in the frontend)
+3. Restart the backend. The "Permanently delete my account" button on the Profile → Security tab will then work.
+
+**Profile pictures (avatars bucket):** Uploads use Supabase Storage. Create the bucket once:
+
+1. In [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Storage**.
+2. Click **New bucket**. Name it exactly: `avatars`.
+3. Turn **Public bucket** ON (so profile image URLs work).
+4. Click **Create bucket**.
+5. Open the `avatars` bucket → **Policies** → **New policy**. Use "For full customization" and add:
+   - **Policy name:** Allow authenticated uploads
+   - **Allowed operation:** INSERT (and SELECT if you want read via API; public bucket already allows public read).
+   - **Target roles:** authenticated (or leave default).
+   - **Policy definition:** `true` for authenticated users, or use: `bucket_id = 'avatars' AND auth.role() = 'authenticated'`.
+   Or use the template "Allow authenticated uploads" if available and scope it to bucket `avatars`.
+
+After the bucket exists and is public, profile photo upload on signup and Profile page will work.
+
 ### Collaboration & Social Features
 
 * Lightweight social tools to share and discuss development ideas
