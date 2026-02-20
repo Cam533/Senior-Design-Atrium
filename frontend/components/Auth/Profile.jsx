@@ -81,7 +81,6 @@ export default function Profile() {
         })
 
       if (upsertError) throw upsertError
-
       setMessage('Profile updated successfully!')
     } catch (err) {
       setError(err.message)

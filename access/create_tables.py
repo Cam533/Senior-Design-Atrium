@@ -157,8 +157,7 @@ def create_project_table():
         owner_id TEXT NOT NULL,
         name TEXT NOT NULL,
         description TEXT,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (owner_id) REFERENCES aws_user(id) ON DELETE CASCADE
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     '''
 
@@ -179,8 +178,7 @@ def create_project_members_table():
         member_id TEXT NOT NULL,
         role TEXT DEFAULT 'viewer',
         PRIMARY KEY (project_id, member_id),
-        FOREIGN KEY (project_id) REFERENCES project(id) ON DELETE CASCADE,
-        FOREIGN KEY (member_id) REFERENCES aws_user(id) ON DELETE CASCADE
+        FOREIGN KEY (project_id) REFERENCES project(id) ON DELETE CASCADE
     );
     '''
 

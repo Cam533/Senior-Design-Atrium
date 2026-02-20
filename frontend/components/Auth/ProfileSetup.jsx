@@ -35,8 +35,6 @@ export default function ProfileSetup() {
     setError('')
 
     try {
-      // Create user profile in database
-      console.log("Creating user profile in database")
       const timestamp = new Date().toISOString()
       const { error: supabaseError } = await supabase
         .from('users')
@@ -48,45 +46,13 @@ export default function ProfileSetup() {
           neighborhood: neighborhood || null,
           other_specify: userType === 'other' ? otherSpecify : null,
           profile_complete: true,
-          created_at: timestamp, // use time stamp instead of date
-        })      
+          created_at: timestamp,
+        })
 
       if (supabaseError) throw supabaseError
-
-      // Timeout so we don't hang if backend or DB is unreachable
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
-      const res = await fetch('http://localhost:8000/add-aws-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: user.id,
-          email: user.email,
-          user_type: userType,
-          organization: organization || null,
-          neighborhood: neighborhood || null,
-          other_specify: userType === 'other' ? otherSpecify : null,
-          created_at: timestamp,
-        }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-
-      console.log("added to aws response:", res)
-
-      if (!res.ok) {
-        const msg = await res.text()
-        throw new Error(msg || 'Failed to save profile')
-      }
-
-
       navigate('/')
     } catch (err) {
-      if (err.name === 'AbortError') {
-        setError('Request timed out. Is the backend running? Is the database reachable (e.g. VPN)?')
-      } else {
-        setError(err.message)
-      }
+      setError(err.message)
     }
 
     setLoading(false)
@@ -165,8 +131,8 @@ export default function ProfileSetup() {
           </button>
         </form>
 
-        <button className="auth-skip-btn" onClick={handleSkip}>
-          Skip for Now
+        <button type="button" className="auth-skip-btn" onClick={handleSkip} disabled={loading}>
+          {loading ? 'Saving...' : 'Skip for Now'}
         </button>
       </div>
     </div>
