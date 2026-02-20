@@ -12,7 +12,26 @@ const USER_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
+const AVATAR_BUCKET = 'avatars'
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
+const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
+function getInitials(firstName, lastName, email) {
+  const placeholderLike = (s) => /^(first|last)(\s+name)?$/i.test((s || '').trim())
+  const first = (firstName || '').trim()
+  const last = (lastName || '').trim()
+  const hasFirst = first && !placeholderLike(first)
+  const hasLast = last && !placeholderLike(last)
+  if (hasFirst && hasLast) return `${first[0]}${last[0]}`.toUpperCase()
+  if (hasFirst) return first[0].toUpperCase()
+  if (email) return email[0].toUpperCase()
+  return '?'
+}
+
 export default function Profile() {
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [userType, setUserType] = useState('')
   const [organization, setOrganization] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
@@ -21,6 +40,7 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(true)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -54,6 +74,9 @@ export default function Profile() {
         }
 
         if (data) {
+          setFirstName(data.first_name || '')
+          setLastName(data.last_name || '')
+          setAvatarUrl(data.avatar_url || '')
           setUserType(data.user_type || '')
           setOrganization(data.organization || '')
           setNeighborhood(data.neighborhood || '')
@@ -81,6 +104,9 @@ export default function Profile() {
         .upsert({
           id: user.id,
           email: user.email,
+          first_name: firstName.trim() || null,
+          last_name: lastName.trim() || null,
+          avatar_url: avatarUrl || null,
           user_type: userType,
           organization: organization || null,
           neighborhood: neighborhood || null,
@@ -96,6 +122,53 @@ export default function Profile() {
     }
 
     setLoading(false)
+  }
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !user?.id) return
+
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      setError('Please choose a JPEG, PNG, GIF, or WebP image.')
+      return
+    }
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      setError('Image must be 2MB or smaller.')
+      return
+    }
+
+    setUploadingAvatar(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `${user.id}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, file, { upsert: true, contentType: file.type })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
+      const newUrl = urlData?.publicUrl ?? ''
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: newUrl })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
+      setAvatarUrl(newUrl)
+      setMessage('Profile picture updated.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setUploadingAvatar(false)
+      e.target.value = ''
+    }
   }
 
   const handleChangePassword = async (e) => {
@@ -206,6 +279,53 @@ export default function Profile() {
 
               <form onSubmit={handleUpdateProfile} className="auth-form">
           <h3>Profile Information</h3>
+
+          <div className="profile-avatar-section">
+            <div className="profile-avatar-wrap">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Profile" className="profile-avatar profile-avatar-img" />
+              ) : (
+                <div className="profile-avatar profile-avatar-initials" aria-hidden>
+                  {getInitials(firstName, lastName, user?.email)}
+                </div>
+              )}
+            </div>
+            <div className="profile-avatar-actions">
+              <label className="profile-avatar-upload-label">
+                <input
+                  type="file"
+                  accept={ALLOWED_AVATAR_TYPES.join(',')}
+                  onChange={handleAvatarUpload}
+                  disabled={uploadingAvatar}
+                  className="profile-avatar-input"
+                />
+                {uploadingAvatar ? 'Uploading...' : 'Upload photo'}
+              </label>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="firstName">First name</label>
+              <input
+                id="firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="lastName">Last name</label>
+              <input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+              />
+            </div>
+          </div>
           
           <div className="form-group">
             <label>Email</label>

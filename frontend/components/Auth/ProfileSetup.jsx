@@ -13,6 +13,8 @@ const USER_TYPES = [
 ]
 
 export default function ProfileSetup() {
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [userType, setUserType] = useState('')
   const [organization, setOrganization] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
@@ -43,6 +45,8 @@ export default function ProfileSetup() {
         .upsert({
           id: user.id,
           email: user.email,
+          first_name: firstName.trim() || null,
+          last_name: lastName.trim() || null,
           user_type: userType,
           organization: organization || null,
           neighborhood: neighborhood || null,
@@ -103,6 +107,28 @@ export default function ProfileSetup() {
         <p>Help us understand your needs (you can skip this for now).</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="firstName">First name (optional)</label>
+              <input
+                id="firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="lastName">Last name (optional)</label>
+              <input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+              />
+            </div>
+          </div>
           <div className="form-group">
             <label htmlFor="userType">How do you describe yourself?</label>
             <div className="user-type-options">
