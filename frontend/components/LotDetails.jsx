@@ -2,6 +2,7 @@
 // Displayed when user clicks "View More" from the parcel summary
 import { useState, useEffect } from 'react'
 import '../styles/LotDetails.css'
+import PlotImageGallery from './PlotImageGallery'
 
 export default function LotDetails({ parcel = null, onBack = () => {}, scores: initialScores = null, loadingScores: initialLoadingScores = false, censusData: initialCensusData = null, loadingCensus: initialLoadingCensus = false }) {
   const [scores, setScores] = useState(initialScores)
@@ -73,6 +74,34 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
       })
   }, [parcel, initialScores])
 
+  useEffect(() => {
+    // If census data was passed as props, use it directly
+    if (initialCensusData !== null) {
+      setCensusData(initialCensusData)
+      return
+    }
+
+    if (!parcel || !parcel.lat || !parcel.lon) return
+
+    setLoadingCensus(true)
+    fetch('http://localhost:8000/parcel_census_data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: parcel.lat, lon: parcel.lon, radius_m: 100 })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.data) {
+          setCensusData(data.data)
+        }
+        setLoadingCensus(false)
+      })
+      .catch(err => {
+        console.error('Failed to fetch census data:', err)
+        setLoadingCensus(false)
+      })
+  }, [parcel, initialCensusData])
+
   if (!parcel) return null
 
   return (
@@ -95,9 +124,7 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
       <div className="lot-details-main">
         {/* Left sidebar for images/street view */}
         <div className="lot-details-sidebar">
-          <div className="lot-details-image-placeholder">
-            <div className="image-placeholder-text">📷 Images / Street View</div>
-          </div>
+          <PlotImageGallery parcelNumber={initialCensusData?.parcel_number || censusData?.parcel_number} />
         </div>
 
         {/* Right content area */}
