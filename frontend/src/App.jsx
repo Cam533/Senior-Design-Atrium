@@ -7,7 +7,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import Map from "../components/Map";
-import Chat from "../components/Chat";
+import LikedLots from "../components/LikedLots";
 import Projects from "../components/Projects";
 import Login from "../components/Auth/Login";
 import ProfileSetup from "../components/Auth/ProfileSetup";
@@ -44,7 +44,7 @@ function Topbar() {
               : "nav-link nav-button"
           }
         >
-          Chat
+          Liked Lots
         </Link>
         <Link
           to="/projects"
@@ -110,7 +110,7 @@ function ChatPage() {
   return (
     <main className="main-content">
       <div className="chat-container">
-        <Chat />
+        <LikedLots />
       </div>
     </main>
   );

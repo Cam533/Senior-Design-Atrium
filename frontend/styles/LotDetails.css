@@ -51,6 +51,29 @@
   letter-spacing: 0.3px;
 }
 
+.lot-details-like-button {
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #0f172a;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: background 140ms ease, border-color 140ms ease, transform 120ms ease;
+}
+
+.lot-details-like-button:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  transform: translateY(-1px);
+}
+
 .lot-details-main {
   flex: 1;
   display: flex;

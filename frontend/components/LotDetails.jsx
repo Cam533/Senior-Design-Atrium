@@ -2,12 +2,19 @@
 // Displayed when user clicks "View More" from the parcel summary
 import { useState, useEffect } from 'react'
 import '../styles/LotDetails.css'
+import PlotImageGallery from './PlotImageGallery'
+import { fetchLikeCount, fetchLikeStatus, toggleLike } from '../utils/likedLots'
+import { useAuth } from '../src/context/AuthContext'
 
 export default function LotDetails({ parcel = null, onBack = () => {}, scores: initialScores = null, loadingScores: initialLoadingScores = false, censusData: initialCensusData = null, loadingCensus: initialLoadingCensus = false }) {
   const [scores, setScores] = useState(initialScores)
   const [loadingScores, setLoadingScores] = useState(initialLoadingScores)
   const [censusData, setCensusData] = useState(initialCensusData)
   const [loadingCensus, setLoadingCensus] = useState(initialLoadingCensus)
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(null)
+  const [likeLoading, setLikeLoading] = useState(false)
+  const { user } = useAuth()
 
   const scoreMeta = {
     environmental: {
@@ -48,6 +55,28 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
   }
 
   useEffect(() => {
+    if (parcel && user?.id) {
+      const key = parcel?.parcel_number || parcel?.parcelNumber || parcel?.opa_id || parcel?.address || `${parcel?.lat ?? ''},${parcel?.lon ?? ''}`
+      if (key) {
+        setLikeLoading(true)
+        Promise.all([
+          fetchLikeStatus(user.id, key),
+          fetchLikeCount(key),
+        ])
+          .then(([status, count]) => {
+            setLiked(status)
+            setLikeCount(count)
+          })
+          .catch(() => {
+            setLiked(false)
+            setLikeCount(null)
+          })
+          .finally(() => setLikeLoading(false))
+      }
+    } else {
+      setLiked(false)
+      setLikeCount(null)
+    }
     // If scores were passed as props (from ParcelChat), use them directly
     if (initialScores !== null) {
       setScores(initialScores)
@@ -71,7 +100,46 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
         console.error('Failed to fetch scores:', err)
         setLoadingScores(false)
       })
-  }, [parcel, initialScores])
+  }, [parcel, initialScores, user?.id])
+
+  useEffect(() => {
+    // If census data was passed as props, use it directly
+    if (initialCensusData !== null) {
+      setCensusData(initialCensusData)
+      return
+    }
+
+    if (!parcel || !parcel.lat || !parcel.lon) return
+
+    setLoadingCensus(true)
+    fetch('http://localhost:8000/parcel_census_data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: parcel.lat, lon: parcel.lon, radius_m: 100 })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.data) {
+          setCensusData(data.data)
+        }
+        setLoadingCensus(false)
+      })
+      .catch(err => {
+        console.error('Failed to fetch census data:', err)
+        setLoadingCensus(false)
+      })
+  }, [parcel, initialCensusData])
+
+  const handleToggleLike = async () => {
+    if (!user?.id) return
+    try {
+      const result = await toggleLike(user.id, parcel)
+      setLiked(result.liked)
+      setLikeCount(result.total_likes)
+    } catch (e) {
+      // ignore
+    }
+  }
 
   if (!parcel) return null
 
@@ -89,15 +157,32 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
         <h1 className="lot-details-title">
           {parcel.address || 'Lot Details'}
         </h1>
+        <button
+          onClick={handleToggleLike}
+          aria-label={liked ? 'Unlike this lot' : 'Like this lot'}
+          className="lot-details-like-button"
+          disabled={!user?.id}
+          title={user?.id ? (liked ? 'Unlike this lot' : 'Like this lot') : 'Log in to like lots'}
+        >
+          {liked ? '♥' : '♡'}
+        </button>
       </div>
+      {(likeCount !== null || !user?.id) && (
+        <div style={{ padding: '0 24px 12px 24px', color: '#64748b', fontSize: 12 }}>
+          {!user?.id && 'Log in to save lots to your profile.'}
+          {user?.id && likeCount !== null && (
+            <span>
+              {likeLoading ? 'Loading likes…' : `Liked by ${Math.max(0, likeCount - (liked ? 1 : 0))} other users`}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Main content area with sidebar layout */}
       <div className="lot-details-main">
         {/* Left sidebar for images/street view */}
         <div className="lot-details-sidebar">
-          <div className="lot-details-image-placeholder">
-            <div className="image-placeholder-text">📷 Images / Street View</div>
-          </div>
+          <PlotImageGallery parcelNumber={initialCensusData?.parcel_number || censusData?.parcel_number} />
         </div>
 
         {/* Right content area */}

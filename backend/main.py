@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -9,8 +9,13 @@ import json
 import requests
 from fastapi.responses import JSONResponse
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from fastapi import HTTPException
+import boto3
+from botocore.exceptions import ClientError
+import uuid
+import io
+import mimetypes
 
 from dotenv import load_dotenv
 
@@ -20,6 +25,26 @@ load_dotenv(_env_path)
 
 # Add parent directory to path so we can import models
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Initialize S3 client for image uploads
+_s3_client = None
+_s3_bucket_name = os.getenv("S3_BUCKET_NAME")
+
+def get_s3_client():
+    """Get or create the S3 client."""
+    global _s3_client
+    if _s3_client is None:
+        try:
+            _s3_client = boto3.client(
+                "s3",
+                region_name=os.getenv("AWS_REGION", "us-east-1"),
+                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            )
+        except Exception as e:
+            print(f"Warning: Could not initialize S3 client: {e}")
+            _s3_client = False  # Mark as failed so we don't retry
+    return _s3_client if _s3_client else None
 
 try:
     from models.rag.query_rag import get_rag_response
@@ -88,6 +113,22 @@ def startup_load_geojson() -> None:
     except Exception as e:
         print("Warning: failed to load vacant geojson cache:", e)
 
+    # Ensure liked_lots table exists when DB is available
+    if engine is not None:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS liked_lots (
+                    user_id TEXT NOT NULL,
+                    parcel_key TEXT NOT NULL,
+                    parcel JSONB NOT NULL,
+                    liked_at TIMESTAMPTZ DEFAULT NOW(),
+                    PRIMARY KEY (user_id, parcel_key)
+                );
+                """))
+        except Exception as e:
+            print("Warning: failed to ensure liked_lots table:", e)
+
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
@@ -120,6 +161,21 @@ class ProjectRequest(BaseModel):
     name: str
     description: str
     created_at: str
+
+class PlotImagesResponse(BaseModel):
+    """Response containing file IDs for a plot."""
+    parcel_number: str
+    file_ids: List[str]
+    image_urls: List[str]
+
+class LikedLotToggleRequest(BaseModel):
+    user_id: str
+    parcel_key: str
+    parcel: dict
+
+class LikedLotStatusResponse(BaseModel):
+    liked: bool
+    total_likes: int
 
 
 @app.get("/")
@@ -185,6 +241,79 @@ def reload_map_geojson():
 def geographic_scores(req: NearbyRequest):
     scores = score_location(req.lat, req.lon)
     return scores
+
+@app.get("/liked_lots")
+def list_liked_lots(user_id: str):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    sql = text("""
+    SELECT parcel_key, parcel, liked_at
+    FROM liked_lots
+    WHERE user_id = :user_id
+    ORDER BY liked_at DESC;
+    """)
+    with engine.connect() as conn:
+        rows = conn.execute(sql, {"user_id": user_id}).mappings().all()
+    return {"items": [dict(r) for r in rows]}
+
+@app.get("/liked_lots/count")
+def liked_lots_count(parcel_key: str):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    sql = text("SELECT COUNT(*) AS total FROM liked_lots WHERE parcel_key = :parcel_key")
+    with engine.connect() as conn:
+        row = conn.execute(sql, {"parcel_key": parcel_key}).mappings().first()
+    return {"total": int(row["total"]) if row else 0}
+
+@app.get("/liked_lots/status")
+def liked_lot_status(user_id: str, parcel_key: str):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    sql = text("""
+    SELECT 1
+    FROM liked_lots
+    WHERE user_id = :user_id AND parcel_key = :parcel_key
+    LIMIT 1;
+    """)
+    with engine.connect() as conn:
+        row = conn.execute(sql, {"user_id": user_id, "parcel_key": parcel_key}).first()
+    return {"liked": row is not None}
+
+@app.post("/liked_lots/toggle")
+def toggle_liked_lot(req: LikedLotToggleRequest) -> LikedLotStatusResponse:
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    with engine.begin() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM liked_lots WHERE user_id = :user_id AND parcel_key = :parcel_key"),
+            {"user_id": req.user_id, "parcel_key": req.parcel_key},
+        ).first()
+
+        if exists:
+            conn.execute(
+                text("DELETE FROM liked_lots WHERE user_id = :user_id AND parcel_key = :parcel_key"),
+                {"user_id": req.user_id, "parcel_key": req.parcel_key},
+            )
+            liked = False
+        else:
+            conn.execute(
+                text("""
+                INSERT INTO liked_lots (user_id, parcel_key, parcel)
+                VALUES (:user_id, :parcel_key, :parcel)
+                ON CONFLICT (user_id, parcel_key)
+                DO UPDATE SET parcel = EXCLUDED.parcel, liked_at = NOW();
+                """),
+                {"user_id": req.user_id, "parcel_key": req.parcel_key, "parcel": json.dumps(req.parcel)},
+            )
+            liked = True
+
+        total_row = conn.execute(
+            text("SELECT COUNT(*) AS total FROM liked_lots WHERE parcel_key = :parcel_key"),
+            {"parcel_key": req.parcel_key},
+        ).mappings().first()
+        total = int(total_row["total"]) if total_row else 0
+
+    return {"liked": liked, "total_likes": total}
 
 @app.post("/add-aws-user")
 def add_aws_user(req: AWSUserRequest):
@@ -312,6 +441,191 @@ def parcel_census_data(req: NearbyRequest):
 
 def _supabase_headers(service_role_key: str):
     return {"Authorization": f"Bearer {service_role_key}", "apikey": service_role_key, "Content-Type": "application/json"}
+
+
+@app.post("/upload-plot-image")
+async def upload_plot_image(
+    parcel_number: str,
+    file: UploadFile = File(...)
+):
+    """
+    Upload an image for a plot/parcel.
+    - Stores the image in S3 with a unique file ID
+    - Records the file ID in the plot_images table
+    - Returns the file ID and S3 URL
+    """
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    
+    s3_client = get_s3_client()
+    if not s3_client or not _s3_bucket_name:
+        raise HTTPException(
+            status_code=503,
+            detail="S3 not configured. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and S3_BUCKET_NAME in .env"
+        )
+    
+    try:
+        # Read file content
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="File is empty")
+        
+        # Generate unique file ID
+        file_id = str(uuid.uuid4())
+        
+        # Determine file extension
+        ext = ""
+        if file.filename:
+            _, ext = os.path.splitext(file.filename)
+        
+        # Upload to S3
+        s3_key = f"plot-images/{parcel_number}/{file_id}{ext}"
+        
+        try:
+            s3_client.put_object(
+                Bucket=_s3_bucket_name,
+                Key=s3_key,
+                Body=io.BytesIO(content),
+                ContentType=file.content_type or "application/octet-stream",
+            )
+        except ClientError as e:
+            print(f"S3 upload error: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload to S3: {str(e)}")
+        
+        # Update or insert into plot_images table
+        sql = text("""
+        INSERT INTO plot_images (parcel_number, file_ids)
+        VALUES (:parcel_number, ARRAY[:file_id])
+        ON CONFLICT (parcel_number) DO UPDATE SET
+          file_ids = array_append(plot_images.file_ids, EXCLUDED.file_ids[1]),
+          updated_at = CURRENT_TIMESTAMP
+        """)
+        
+        try:
+            with engine.begin() as conn:
+                conn.execute(sql, {"parcel_number": parcel_number, "file_id": file_id})
+        except ProgrammingError as e:
+            if "plot_images" in str(e) or "does not exist" in str(e):
+                raise HTTPException(
+                    status_code=500,
+                    detail="plot_images table not found. Run: python access/create_plot_images_table.py"
+                )
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        
+        # Generate S3 URL
+        s3_url = f"https://{_s3_bucket_name}.s3.amazonaws.com/{s3_key}"
+        
+        return {
+            "status": "ok",
+            "file_id": file_id,
+            "s3_url": s3_url,
+            "parcel_number": parcel_number
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error uploading plot image: {e}")
+        raise HTTPException(status_code=500, detail=f"Error uploading image: {str(e)}")
+
+
+@app.get("/plot-images/{parcel_number}")
+def get_plot_images(parcel_number: str):
+    """
+    Get all images for a plot/parcel.
+    Returns file IDs and pre-signed S3 URLs.
+    """
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    
+    s3_client = get_s3_client()
+    
+    sql = text("""
+    SELECT file_ids FROM plot_images WHERE parcel_number = :parcel_number
+    """)
+    
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(sql, {"parcel_number": parcel_number}).mappings().fetchone()
+    except ProgrammingError as e:
+        if "plot_images" in str(e) or "does not exist" in str(e):
+            return {"parcel_number": parcel_number, "file_ids": [], "image_urls": []}
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    if not row or not row.file_ids:
+        return {"parcel_number": parcel_number, "file_ids": [], "image_urls": []}
+    
+    file_ids = list(row.file_ids) if row.file_ids else []
+    image_urls = []
+    
+    # Generate S3 URLs for each file
+    if s3_client and _s3_bucket_name:
+        for file_id in file_ids:
+            # Try to find the file with common extensions
+            found = False
+            for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp", ""]:
+                s3_key = f"plot-images/{parcel_number}/{file_id}{ext}"
+                try:
+                    # Check if object exists and generate URL
+                    s3_client.head_object(Bucket=_s3_bucket_name, Key=s3_key)
+                    url = f"https://{_s3_bucket_name}.s3.amazonaws.com/{s3_key}"
+                    image_urls.append(url)
+                    found = True
+                    break
+                except ClientError:
+                    continue
+            
+            # Fallback to generic URL if we couldn't find the exact extension
+            if not found:
+                url = f"https://{_s3_bucket_name}.s3.amazonaws.com/plot-images/{parcel_number}/{file_id}"
+                image_urls.append(url)
+    else:
+        # If no S3 client, just return placeholder URLs
+        for file_id in file_ids:
+            image_urls.append(f"s3://plot-images/{parcel_number}/{file_id}")
+    
+    return {"parcel_number": parcel_number, "file_ids": file_ids, "image_urls": image_urls}
+
+
+@app.delete("/plot-image/{parcel_number}/{file_id}")
+def delete_plot_image(parcel_number: str, file_id: str):
+    """
+    Delete a specific image from a plot.
+    Removes from both S3 and the database.
+    """
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    
+    s3_client = get_s3_client()
+    if not s3_client or not _s3_bucket_name:
+        raise HTTPException(
+            status_code=503,
+            detail="S3 not configured"
+        )
+    
+    # Delete from S3
+    for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp", ""]:
+        s3_key = f"plot-images/{parcel_number}/{file_id}{ext}"
+        try:
+            s3_client.delete_object(Bucket=_s3_bucket_name, Key=s3_key)
+            break
+        except ClientError:
+            continue
+    
+    # Remove file_id from database
+    sql = text("""
+    UPDATE plot_images
+    SET file_ids = array_remove(file_ids, :file_id),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE parcel_number = :parcel_number
+    """)
+    
+    try:
+        with engine.begin() as conn:
+            conn.execute(sql, {"parcel_number": parcel_number, "file_id": file_id})
+        return {"status": "ok", "message": "Image deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/delete-account")
