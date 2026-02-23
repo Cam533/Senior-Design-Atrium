@@ -2,7 +2,7 @@
 ## Senior Design Project 
 #### University of Pennsylvania
 
-Current Steps for this iteration (in root of project):
+Steps for chat functionality (only have to run once):
 
 1. create python virtual environment: `python -m venv venv` and then start it `source venv/bin/activate`
 2. pip install requirements.txt

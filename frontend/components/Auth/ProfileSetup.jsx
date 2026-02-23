@@ -74,8 +74,6 @@ export default function ProfileSetup() {
     setError('')
 
     try {
-<<<<<<< HEAD
-=======
       let targetUser = user
       if (isNewSignup) {
         const { data, error: signUpError } = await signup(email, password)
@@ -107,7 +105,6 @@ export default function ProfileSetup() {
         avatarUrl = urlData?.publicUrl ?? ''
       }
 
->>>>>>> 3f494f4339eedd05f30b17f74980dde5d312963a
       const timestamp = new Date().toISOString()
       const { error: supabaseError } = await supabase
         .from('users')
@@ -126,11 +123,6 @@ export default function ProfileSetup() {
         })
 
       if (supabaseError) throw supabaseError
-<<<<<<< HEAD
-      navigate('/')
-    } catch (err) {
-      setError(err.message)
-=======
 
       navigate('/')
     } catch (err) {
@@ -139,7 +131,6 @@ export default function ProfileSetup() {
       } else {
         setError(err.message)
       }
->>>>>>> 3f494f4339eedd05f30b17f74980dde5d312963a
     }
 
     setLoading(false)
@@ -293,11 +284,6 @@ export default function ProfileSetup() {
           </button>
         </form>
 
-<<<<<<< HEAD
-        <button type="button" className="auth-skip-btn" onClick={handleSkip} disabled={loading}>
-          {loading ? 'Saving...' : 'Skip for Now'}
-        </button>
-=======
         {isNewSignup && (
           <p className="auth-footer">
             Already have an account? <Link to="/login">Log in</Link>
@@ -308,7 +294,6 @@ export default function ProfileSetup() {
             Skip for Now
           </button>
         )}
->>>>>>> 3f494f4339eedd05f30b17f74980dde5d312963a
       </div>
     </div>
   )
