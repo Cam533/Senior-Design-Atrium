@@ -157,6 +157,7 @@ def create_project_table():
         owner_id TEXT NOT NULL,
         name TEXT NOT NULL,
         description TEXT,
+        plots TEXT[] NOT NULL DEFAULT '{}',
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     '''

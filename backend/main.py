@@ -105,6 +105,38 @@ def load_vacant_geojson_cache() -> None:
     cached_map_geojson["features"] = features
 
 
+def _feature_center(feature):
+    """Extract (lat, lon) from a GeoJSON feature's geometry. Returns (None, None) if not available."""
+    try:
+        geom = feature.get("geometry")
+        if not geom or not geom.get("coordinates"):
+            return None, None
+        coords = geom["coordinates"]
+        if geom.get("type") == "Polygon" and coords and coords[0]:
+            ring = coords[0]
+            n = len(ring)
+            if n == 0:
+                return None, None
+            sum_lon = sum(c[0] for c in ring)
+            sum_lat = sum(c[1] for c in ring)
+            return sum_lat / n, sum_lon / n
+        if geom.get("type") == "MultiPolygon" and coords and coords[0] and coords[0][0]:
+            ring = coords[0][0]
+            n = len(ring)
+            if n == 0:
+                return None, None
+            sum_lon = sum(c[0] for c in ring)
+            sum_lat = sum(c[1] for c in ring)
+            return sum_lat / n, sum_lon / n
+    except Exception:
+        pass
+    return None, None
+
+
+class ParcelsByIdsRequest(BaseModel):
+    objectids: Optional[List[str]] = []
+
+
 # Load cache at startup so the first map requests are fast.
 @app.on_event("startup")
 def startup_load_geojson() -> None:
@@ -159,7 +191,8 @@ class ProjectRequest(BaseModel):
     id: str
     owner_id: str
     name: str
-    description: str
+    description: Optional[str] = ""
+    plots: Optional[List[str]] = []
     created_at: str
 
 class PlotImagesResponse(BaseModel):
@@ -224,6 +257,30 @@ def map_geojson():
     # Return the preloaded cached GeoJSON. This avoids re-reading and parsing
     # large GeoJSON files on every request which caused visible lag.
     return JSONResponse(content=cached_map_geojson)
+
+
+@app.post("/parcels_by_ids")
+def parcels_by_ids(req: ParcelsByIdsRequest):
+    """Return parcel objects (with lat, lon) for the given objectids from the cached map GeoJSON."""
+    want = {str(oid).strip() for oid in (req.objectids or []) if oid is not None and str(oid).strip()}
+    if not want:
+        return {"parcels": []}
+    parcels = []
+    for f in cached_map_geojson.get("features") or []:
+        props = f.get("properties") or {}
+        oid = props.get("objectid")
+        if oid is None:
+            continue
+        if str(oid).strip() not in want:
+            continue
+        lat, lon = _feature_center(f)
+        parcel = dict(props)
+        if lat is not None:
+            parcel["lat"] = lat
+        if lon is not None:
+            parcel["lon"] = lon
+        parcels.append(parcel)
+    return {"parcels": parcels}
 
 
 @app.post("/map/reload")
@@ -356,17 +413,20 @@ def add_project(req: ProjectRequest):
     if engine is None:
         raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
     sql = text("""
-    INSERT INTO project (id, owner_id, name, description, created_at)
-    VALUES (:id, :owner_id, :name, :description, :created_at)
+    INSERT INTO project (id, owner_id, name, description, plots, created_at)
+    VALUES (:id, :owner_id, :name, :description, :plots, :created_at)
     """)
     print("add-project request received for", req)
     try:
+        description = req.description if req.description is not None else ""
+        plots = req.plots if req.plots is not None else []
         with engine.begin() as conn:
             conn.execute(sql, {
                 "id": req.id,
                 "owner_id": req.owner_id,
                 "name": req.name,
-                "description": req.description,
+                "description": description,
+                "plots": plots,
                 "created_at": req.created_at,
             })
         return {"status": "ok", "message": "project written to AWS"}

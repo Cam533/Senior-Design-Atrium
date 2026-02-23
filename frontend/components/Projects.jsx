@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAuth } from '../src/context/AuthContext'
+import Map from './Map'
+import LotDetails from './LotDetails'
+import '../styles/Projects.css'
+
+// Unique id for a parcel (for dedup and API)
+function getParcelId(p) {
+  return p?.objectid ?? p?.parcel_number ?? p?.parcelNumber ?? p?.opa_id ?? p?.address ?? `${p?.lat ?? ''},${p?.lon ?? ''}` ?? ''
+}
 
 export default function Projects() {
   const { user, loading } = useAuth()
@@ -9,6 +17,11 @@ export default function Projects() {
   const [showForm, setShowForm] = useState(false)
   const [projectName, setProjectName] = useState('')
   const [projectDescription, setProjectDescription] = useState('')
+  const [projectPlots, setProjectPlots] = useState([]) // array of parcel objects from map
+  const [showMapPicker, setShowMapPicker] = useState(false)
+  const [expandedProjectId, setExpandedProjectId] = useState(null) // which project's plots are expanded
+  const [selectedParcel, setSelectedParcel] = useState(null) // for LotDetails
+  const [plotsCache, setPlotsCache] = useState({}) // projectId -> { loading, parcels }
 
   // ✅ hooks must be before any return
   useEffect(() => {
@@ -35,25 +48,47 @@ export default function Projects() {
     fetchProjects()
   }, [user])
 
-  if (loading) return <div className="projects-page">Loading your projects…</div>
+  if (loading) {
+    return (
+      <div className="projects-page">
+        <div className="projects-loading">Loading your projects…</div>
+      </div>
+    )
+  }
 
   if (!user) {
     return (
       <div className="projects-page">
-        <h1 className="projects-title">Projects</h1>
-        <p className="projects-subtitle">You need to be logged in to see your projects.</p>
+        <div className="projects-login-prompt">
+          <h1 className="projects-title">Projects</h1>
+          <p className="projects-subtitle">You need to be logged in to see your projects.</p>
+        </div>
       </div>
+    )
+  }
+
+  if (selectedParcel) {
+    return (
+      <LotDetails
+        parcel={selectedParcel}
+        onBack={() => setSelectedParcel(null)}
+      />
     )
   }
 
   const createProject = async () => {
     if (!projectName.trim()) return
 
+    const plotIds = Array.isArray(projectPlots)
+      ? projectPlots.map((p) => String(getParcelId(p))).filter(Boolean)
+      : []
+
     const newProject = {
       id: uuidv4(),
       owner_id: user.id,
-      name: projectName,
-      description: projectDescription,
+      name: projectName.trim(),
+      description: typeof projectDescription === 'string' ? projectDescription : '',
+      plots: plotIds,
       created_at: new Date().toISOString(),
     }
 
@@ -64,7 +99,7 @@ export default function Projects() {
     })
 
     if (!response.ok) {
-      console.error('Failed to create project')
+      console.error('Failed to create project:', response.statusText)
       return
     }
 
@@ -73,41 +108,250 @@ export default function Projects() {
 
     setProjectName('')
     setProjectDescription('')
+    setProjectPlots([])
+    setShowMapPicker(false)
     setShowForm(false)
   }
 
+  const addPlotFromMap = (parcel) => {
+    const id = getParcelId(parcel)
+    if (!id) return
+    setProjectPlots((prev) => {
+      if (prev.some((p) => getParcelId(p) === id)) return prev
+      return [...prev, parcel]
+    })
+  }
+
+  const removePlot = (parcel) => {
+    const id = getParcelId(parcel)
+    setProjectPlots((prev) => prev.filter((p) => getParcelId(p) !== id))
+  }
+
+  const formatDate = (iso) => {
+    try {
+      const d = new Date(iso)
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    } catch {
+      return ''
+    }
+  }
+
+  const fetchProjectPlots = async (projectId, objectids) => {
+    if (!objectids?.length) {
+      setPlotsCache((c) => ({ ...c, [projectId]: { loading: false, parcels: [] } }))
+      return
+    }
+    setPlotsCache((c) => ({ ...c, [projectId]: { ...c[projectId], loading: true } }))
+    try {
+      const res = await fetch('http://localhost:8000/parcels_by_ids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objectids: objectids.map(String) }),
+      })
+      const data = await res.json()
+      const parcels = Array.isArray(data?.parcels) ? data.parcels : []
+      setPlotsCache((c) => ({ ...c, [projectId]: { loading: false, parcels } }))
+    } catch (err) {
+      console.error('Failed to fetch project plots:', err)
+      setPlotsCache((c) => ({ ...c, [projectId]: { loading: false, parcels: [] } }))
+    }
+  }
+
+  const toggleShowPlots = (project) => {
+    const id = project.id
+    const isExpanding = expandedProjectId !== id
+    setExpandedProjectId(isExpanding ? id : null)
+    if (isExpanding && project.plots?.length && !plotsCache[id]?.parcels && !plotsCache[id]?.loading) {
+      fetchProjectPlots(id, project.plots)
+    }
+  }
+
   return (
-    <div className="projects-page">
-      <button onClick={() => setShowForm(true)}>Create Project</button>
+    <div className={`projects-page ${showMapPicker ? 'projects-page-with-map' : ''}`}>
+      <header className="projects-header">
+        <div>
+          <h1 className="projects-title">Projects</h1>
+          <p className="projects-subtitle">Create and manage your development projects.</p>
+        </div>
+        {!showForm && (
+          <button
+            type="button"
+            className="projects-create-btn"
+            onClick={() => setShowForm(true)}
+          >
+            + Create Project
+          </button>
+        )}
+      </header>
 
       {showForm && (
-        <div className="project-form">
-          <input
-            type="text"
-            placeholder="Project Name"
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-          />
+        <div className="projects-form-layout">
+          <div className="project-form-wrapper">
+            <div className="project-form">
+              <h2 className="project-form-title">New project</h2>
+              <label htmlFor="project-name">Project name</label>
+              <input
+                id="project-name"
+                type="text"
+                placeholder="e.g. North Philly mixed-use"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                autoFocus
+              />
+              <label htmlFor="project-description">Description (optional)</label>
+              <textarea
+                id="project-description"
+                placeholder="Brief description of the project…"
+                value={projectDescription}
+                onChange={(e) => setProjectDescription(e.target.value)}
+              />
+              <div className="project-form-plots">
+                <label>Plots (optional)</label>
+                <p className="project-form-plots-hint">Click parcels on the map to add them to this project.</p>
+                <button
+                  type="button"
+                  className="project-form-open-map"
+                  onClick={() => setShowMapPicker((v) => !v)}
+                >
+                  {showMapPicker ? 'Hide map' : 'Open map to pick plots'}
+                </button>
+                {projectPlots.length > 0 && (
+                  <ul className="project-plots-list">
+                    {projectPlots.map((p) => (
+                      <li key={getParcelId(p)} className="project-plot-chip">
+                        <span className="project-plot-chip-label">
+                          {p.address || p.objectid || getParcelId(p)}
+                        </span>
+                        <button
+                          type="button"
+                          className="project-plot-chip-remove"
+                          onClick={() => removePlot(p)}
+                          aria-label="Remove plot"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="project-form-actions">
+                <button
+                  type="button"
+                  className="project-form-save"
+                  onClick={createProject}
+                  disabled={!projectName.trim()}
+                >
+                  Save project
+                </button>
+                <button
+                  type="button"
+                  className="project-form-cancel"
+                  onClick={() => {
+                    setShowForm(false)
+                    setProjectName('')
+                    setProjectDescription('')
+                    setProjectPlots([])
+                    setShowMapPicker(false)
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
 
-          <textarea
-            placeholder="Project Description"
-            value={projectDescription}
-            onChange={(e) => setProjectDescription(e.target.value)}
-          />
-
-          <button onClick={createProject}>Save</button>
-          <button onClick={() => setShowForm(false)}>Cancel</button>
+          {showMapPicker && (
+            <div className="projects-map-panel">
+              <div className="projects-map-panel-header">
+                <span>Click a parcel to add it to the project</span>
+                <button
+                  type="button"
+                  className="project-form-map-close"
+                  onClick={() => setShowMapPicker(false)}
+                  aria-label="Close map"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="projects-map-container">
+                <Map onParcelSelectForProject={addPlotFromMap} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <h1 className="projects-title">{user.email}&apos;s Projects</h1>
+      <h2 className="projects-list-title">Your projects</h2>
 
-      {projects.map((p) => (
-        <div key={p.id} className="project-item">
-          <h2>{p.name}</h2>
-          <p>{p.description}</p>
+      {projects.length === 0 ? (
+        <div className="projects-empty">
+          <strong>No projects yet</strong>
+          Click “Create Project” to add your first one.
         </div>
-      ))}
+      ) : (
+        <div className="projects-list">
+          {projects.map((p) => (
+            <article key={p.id} className="project-item">
+              <h3 className="project-item-name">{p.name}</h3>
+              {p.description ? (
+                <p className="project-item-description">{p.description}</p>
+              ) : (
+                <p className="project-item-description" aria-hidden>No description.</p>
+              )}
+              {p.plots && p.plots.length > 0 && (
+                <div className="project-item-plots">
+                  <button
+                    type="button"
+                    className="project-item-show-plots-btn"
+                    onClick={() => toggleShowPlots(p)}
+                  >
+                    {expandedProjectId === p.id ? 'Hide saved plots' : 'Show saved plots'}
+                  </button>
+                  {expandedProjectId === p.id && (
+                    <div className="project-item-plots-list">
+                      {plotsCache[p.id]?.loading ? (
+                        <p className="project-item-plots-loading">Loading plots…</p>
+                      ) : (plotsCache[p.id]?.parcels?.length ? (
+                        <ul className="project-plots-saved-list">
+                          {(plotsCache[p.id].parcels).map((parcel) => (
+                            <li key={getParcelId(parcel)} className="project-plot-saved-row">
+                              <div>
+                                <div className="project-plot-saved-address">
+                                  {parcel.address || parcel.objectid || getParcelId(parcel)}
+                                </div>
+                                {parcel.zoningbasedistrict && (
+                                  <div className="project-plot-saved-zoning">
+                                    Zoning: {parcel.zoningbasedistrict}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                className="project-plot-view-details-btn"
+                                onClick={() => setSelectedParcel(parcel)}
+                              >
+                                View Details
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="project-item-plots-empty">No parcel data found for these plot IDs.</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {p.created_at && (
+                <p className="project-item-meta">
+                  Created {formatDate(p.created_at)}
+                </p>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

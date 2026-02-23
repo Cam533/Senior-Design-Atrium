@@ -1,0 +1,489 @@
+/* Projects page */
+.projects-page {
+  padding: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  min-height: 100%;
+}
+
+.projects-page-with-map {
+  max-width: none;
+  padding: 16px;
+}
+
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.projects-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+.projects-subtitle {
+  color: #64748b;
+  font-size: 15px;
+  margin: 8px 0 0 0;
+  line-height: 1.45;
+}
+
+.projects-create-btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #0f172a;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 140ms ease, transform 100ms ease;
+}
+
+.projects-create-btn:hover {
+  background: #1e293b;
+}
+
+.projects-create-btn:active {
+  transform: scale(0.98);
+}
+
+/* Form card */
+.project-form-wrapper {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: auto;
+}
+
+.project-form {
+  background: white;
+  border: 1px solid #e6edf3;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Split layout when map is open */
+.projects-page-with-map .projects-form-layout {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  min-height: 70vh;
+  margin-bottom: 24px;
+}
+
+.projects-page-with-map .project-form-wrapper {
+  width: 320px;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.projects-page-with-map .project-form {
+  margin-bottom: 0;
+}
+
+.projects-form-layout {
+  margin-bottom: 28px;
+}
+
+/* Plots from map */
+.project-form-plots {
+  margin-bottom: 16px;
+}
+
+.project-form-plots-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin: 4px 0 8px 0;
+}
+
+.project-form-open-map {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.project-form-open-map:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.project-plots-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-plot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.project-plot-chip-label {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-plot-chip-remove {
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-plot-chip-remove:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Map panel (right side) */
+.projects-map-panel {
+  flex: 1;
+  min-width: min(70vw, 800px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e6edf3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.projects-map-panel-header {
+  padding: 10px 14px;
+  background: white;
+  border-bottom: 1px solid #e6edf3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.project-form-map-close {
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.project-form-map-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.projects-map-container {
+  flex: 1;
+  min-height: 400px;
+  position: relative;
+}
+
+.project-form-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 16px 0;
+}
+
+.project-form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.project-form input,
+.project-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #0f172a;
+  font-family: inherit;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.project-form input:focus,
+.project-form textarea:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.project-form textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.project-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.project-form-actions button {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 100ms ease;
+}
+
+.project-form-actions button:active {
+  transform: scale(0.98);
+}
+
+.project-form-save {
+  border: none;
+  background: #0f172a;
+  color: white;
+}
+
+.project-form-save:hover {
+  background: #1e293b;
+}
+
+.project-form-save:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.project-form-cancel {
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #475569;
+}
+
+.project-form-cancel:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+/* Project list */
+.projects-list-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #475569;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-item {
+  background: white;
+  border: 1px solid #e6edf3;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.project-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.project-item-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.project-item-description {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.project-item-description:empty,
+.project-item-description:not(:empty) {
+  display: block;
+}
+
+.project-item-meta {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 10px;
+}
+
+/* Show saved plots */
+.project-item-plots {
+  margin-top: 12px;
+}
+
+.project-item-show-plots-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.project-item-show-plots-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.project-item-plots-list {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e6edf3;
+}
+
+.project-item-plots-loading,
+.project-item-plots-empty {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.project-plots-saved-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.project-plot-saved-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e6edf3;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.project-plot-saved-address {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.project-plot-saved-zoning {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.project-plot-view-details-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 140ms ease;
+}
+
+.project-plot-view-details-btn:hover {
+  background: #1e293b;
+}
+
+/* Empty state */
+.projects-empty {
+  text-align: center;
+  padding: 48px 24px;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 12px;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.projects-empty strong {
+  display: block;
+  color: #475569;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+/* Loading */
+.projects-loading {
+  padding: 32px;
+  text-align: center;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.projects-login-prompt {
+  padding: 32px 24px;
+  text-align: center;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e6edf3;
+}
+
+.projects-login-prompt .projects-title {
+  margin-bottom: 8px;
+}
+
+.projects-login-prompt .projects-subtitle {
+  margin-top: 0;
+}

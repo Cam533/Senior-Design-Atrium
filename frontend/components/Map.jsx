@@ -100,7 +100,7 @@ function ChunkedGeoJSON({ data, batchSize = 300, options = {} }) {
   return null;
 }
 
-export default function Map() {
+export default function Map({ onParcelSelectForProject = null }) {
   const [mapData, setMapData] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
   const selectedLayerRef = useRef(null);
@@ -278,6 +278,20 @@ export default function Map() {
       layer.setStyle({ color: "red" });
       selectedLayerRef.current = layer;
 
+      // If we're in "add to project" mode, report selection and don't open chat
+      if (onParcelSelectForProject && typeof onParcelSelectForProject === "function") {
+        onParcelSelectForProject(parcelWithCoords);
+        try {
+          const map = (layer && layer._map) || mapInstance;
+          if (map && layer.getBounds && typeof layer.getBounds === "function") {
+            const bounds = layer.getBounds();
+            const targetLatLng = bounds.getCenter();
+            map.flyTo(targetLatLng, Math.max(map.getZoom(), 16), { animate: true, duration: 0.4 });
+          }
+        } catch (err) {}
+        return;
+      }
+
       setSelectedPolygon(parcelWithCoords);
       // show the independent parcel chat (do not open main chat)
       setShowParcelChat(true);
@@ -328,7 +342,7 @@ export default function Map() {
 
     layer.on("mouseover", () => layer.setStyle({ weight: 3 }));
     layer.on("mouseout", () => layer.setStyle({ weight: 2 }));
-  }, [setSelectedPolygon, setShowParcelChat, setShowChat, defaultLayerStyle]);
+  }, [setSelectedPolygon, setShowParcelChat, setShowChat, defaultLayerStyle, onParcelSelectForProject]);
 
   // Create a memoized options object so the chunked loader doesn't restart
   const chunkOptions = React.useMemo(() => {
