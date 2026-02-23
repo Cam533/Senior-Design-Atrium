@@ -113,6 +113,22 @@ def startup_load_geojson() -> None:
     except Exception as e:
         print("Warning: failed to load vacant geojson cache:", e)
 
+    # Ensure liked_lots table exists when DB is available
+    if engine is not None:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS liked_lots (
+                    user_id TEXT NOT NULL,
+                    parcel_key TEXT NOT NULL,
+                    parcel JSONB NOT NULL,
+                    liked_at TIMESTAMPTZ DEFAULT NOW(),
+                    PRIMARY KEY (user_id, parcel_key)
+                );
+                """))
+        except Exception as e:
+            print("Warning: failed to ensure liked_lots table:", e)
+
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
@@ -151,6 +167,15 @@ class PlotImagesResponse(BaseModel):
     parcel_number: str
     file_ids: List[str]
     image_urls: List[str]
+
+class LikedLotToggleRequest(BaseModel):
+    user_id: str
+    parcel_key: str
+    parcel: dict
+
+class LikedLotStatusResponse(BaseModel):
+    liked: bool
+    total_likes: int
 
 
 @app.get("/")
@@ -216,6 +241,79 @@ def reload_map_geojson():
 def geographic_scores(req: NearbyRequest):
     scores = score_location(req.lat, req.lon)
     return scores
+
+@app.get("/liked_lots")
+def list_liked_lots(user_id: str):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    sql = text("""
+    SELECT parcel_key, parcel, liked_at
+    FROM liked_lots
+    WHERE user_id = :user_id
+    ORDER BY liked_at DESC;
+    """)
+    with engine.connect() as conn:
+        rows = conn.execute(sql, {"user_id": user_id}).mappings().all()
+    return {"items": [dict(r) for r in rows]}
+
+@app.get("/liked_lots/count")
+def liked_lots_count(parcel_key: str):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    sql = text("SELECT COUNT(*) AS total FROM liked_lots WHERE parcel_key = :parcel_key")
+    with engine.connect() as conn:
+        row = conn.execute(sql, {"parcel_key": parcel_key}).mappings().first()
+    return {"total": int(row["total"]) if row else 0}
+
+@app.get("/liked_lots/status")
+def liked_lot_status(user_id: str, parcel_key: str):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    sql = text("""
+    SELECT 1
+    FROM liked_lots
+    WHERE user_id = :user_id AND parcel_key = :parcel_key
+    LIMIT 1;
+    """)
+    with engine.connect() as conn:
+        row = conn.execute(sql, {"user_id": user_id, "parcel_key": parcel_key}).first()
+    return {"liked": row is not None}
+
+@app.post("/liked_lots/toggle")
+def toggle_liked_lot(req: LikedLotToggleRequest) -> LikedLotStatusResponse:
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    with engine.begin() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM liked_lots WHERE user_id = :user_id AND parcel_key = :parcel_key"),
+            {"user_id": req.user_id, "parcel_key": req.parcel_key},
+        ).first()
+
+        if exists:
+            conn.execute(
+                text("DELETE FROM liked_lots WHERE user_id = :user_id AND parcel_key = :parcel_key"),
+                {"user_id": req.user_id, "parcel_key": req.parcel_key},
+            )
+            liked = False
+        else:
+            conn.execute(
+                text("""
+                INSERT INTO liked_lots (user_id, parcel_key, parcel)
+                VALUES (:user_id, :parcel_key, :parcel)
+                ON CONFLICT (user_id, parcel_key)
+                DO UPDATE SET parcel = EXCLUDED.parcel, liked_at = NOW();
+                """),
+                {"user_id": req.user_id, "parcel_key": req.parcel_key, "parcel": json.dumps(req.parcel)},
+            )
+            liked = True
+
+        total_row = conn.execute(
+            text("SELECT COUNT(*) AS total FROM liked_lots WHERE parcel_key = :parcel_key"),
+            {"parcel_key": req.parcel_key},
+        ).mappings().first()
+        total = int(total_row["total"]) if total_row else 0
+
+    return {"liked": liked, "total_likes": total}
 
 @app.post("/add-aws-user")
 def add_aws_user(req: AWSUserRequest):

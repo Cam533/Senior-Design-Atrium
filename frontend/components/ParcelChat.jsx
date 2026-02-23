@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import LotDetails from './LotDetails'
+import { fetchLikeCount, fetchLikeStatus, toggleLike } from '../utils/likedLots'
+import { useAuth } from '../src/context/AuthContext'
 
 const API_URL = 'http://localhost:8000/chat'
 
@@ -19,6 +21,10 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
   const [hoveredTab, setHoveredTab] = useState(null)
   const [showRecommendations, setShowRecommendations] = useState(true)
   const [showDetailsPage, setShowDetailsPage] = useState(false)
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(null)
+  const [likeLoading, setLikeLoading] = useState(false)
+  const { user } = useAuth()
   const inputRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
@@ -73,6 +79,28 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
 
   useEffect(() => {
     if (!parcel) return
+    if (user?.id) {
+      const key = parcel?.parcel_number || parcel?.parcelNumber || parcel?.opa_id || parcel?.address || `${parcel?.lat ?? ''},${parcel?.lon ?? ''}`
+      if (key) {
+        setLikeLoading(true)
+        Promise.all([
+          fetchLikeStatus(user.id, key),
+          fetchLikeCount(key),
+        ])
+          .then(([status, count]) => {
+            setLiked(status)
+            setLikeCount(count)
+          })
+          .catch(() => {
+            setLiked(false)
+            setLikeCount(null)
+          })
+          .finally(() => setLikeLoading(false))
+      }
+    } else {
+      setLiked(false)
+      setLikeCount(null)
+    }
     // reset messages when opening parcel chat (ephemeral)
     setMessages([])
     setInputValue('')
@@ -127,7 +155,18 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
         })
     }
     setShowRecommendations(true)
-  }, [parcel])
+  }, [parcel, user?.id])
+
+  const handleToggleLike = async () => {
+    if (!user?.id) return
+    try {
+      const result = await toggleLike(user.id, parcel)
+      setLiked(result.liked)
+      setLikeCount(result.total_likes)
+    } catch (e) {
+      // ignore
+    }
+  }
 
   // Helper component to render a message bubble with optional truncation
   function MessageBubble({ msg, expanded, onToggle }) {
@@ -371,7 +410,44 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
       {/* Unified scrollable summary + scores + census area */}
       {activeTab === 'summary' && (
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: '#fbfbfb', padding: '12px 16px' }}>
-          <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 18, letterSpacing: 0.3, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial", color: '#0f172a' }}>{parcel.address || 'Selected Parcel'}</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+            <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: 0.3, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial", color: '#0f172a' }}>
+              {parcel.address || 'Selected Parcel'}
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleLike}
+              aria-label={liked ? 'Unlike this lot' : 'Like this lot'}
+              style={{
+                border: '1px solid #e2e8f0',
+                background: liked ? '#fee2e2' : 'white',
+                color: liked ? '#b91c1c' : '#0f172a',
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                cursor: user?.id ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 16,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+              }}
+              disabled={!user?.id}
+              title={user?.id ? (liked ? 'Unlike this lot' : 'Like this lot') : 'Log in to like lots'}
+            >
+              {liked ? '♥' : '♡'}
+            </button>
+          </div>
+          {(likeCount !== null || !user?.id) && (
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>
+              {!user?.id && 'Log in to save lots to your profile.'}
+              {user?.id && likeCount !== null && (
+                <span>
+                  {likeLoading ? 'Loading likes…' : `Liked by ${Math.max(0, likeCount - (liked ? 1 : 0))} other users`}
+                </span>
+              )}
+            </div>
+          )}
           
           <div style={{ fontSize: 13, color: '#111', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {(() => {
