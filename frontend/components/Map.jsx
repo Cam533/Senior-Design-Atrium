@@ -114,6 +114,7 @@ export default function Map({ onParcelSelectForProject = null }) {
     councilDistricts: [],
     zoningDistricts: [],
     zipCodes: [],
+    owners: [],
     minLandRank: null,
     maxLandRank: null,
     minShapeArea: null,
@@ -372,12 +373,13 @@ export default function Map({ onParcelSelectForProject = null }) {
   }, [showParcelChat, selectedPolygon, defaultLayerStyle]);
   // Extract unique filter values from mapData
   const filterOptions = React.useMemo(() => {
-    if (!mapData || !mapData.features) return { landTypes: [], councilDistricts: [], zoningDistricts: [], zipCodes: [] };
+    if (!mapData || !mapData.features) return { landTypes: [], councilDistricts: [], zoningDistricts: [], zipCodes: [], owners: [] };
     
     const landTypes = new Set();
     const councilDistricts = new Set();
     const zoningDistricts = new Set();
     const zipCodes = new Set();
+    const owners = new Set();
     
     mapData.features.forEach((feature) => {
       const props = feature.properties || {};
@@ -385,6 +387,8 @@ export default function Map({ onParcelSelectForProject = null }) {
       if (props.councildistrict) councilDistricts.add(String(props.councildistrict));
       if (props.zoningbasedistrict) zoningDistricts.add(props.zoningbasedistrict);
       if (props.zipcode) zipCodes.add(String(props.zipcode));
+      const owner = props.owner1;
+      if (owner != null && String(owner).trim() !== "") owners.add(String(owner).trim());
     });
     
     return {
@@ -392,6 +396,7 @@ export default function Map({ onParcelSelectForProject = null }) {
       councilDistricts: Array.from(councilDistricts).sort((a, b) => Number(a) - Number(b)),
       zoningDistricts: Array.from(zoningDistricts).sort(),
       zipCodes: Array.from(zipCodes).sort(),
+      owners: Array.from(owners).sort(),
     };
   }, [mapData]);
 
@@ -405,6 +410,7 @@ export default function Map({ onParcelSelectForProject = null }) {
       filters.councilDistricts.length > 0 ||
       filters.zoningDistricts.length > 0 ||
       filters.zipCodes.length > 0 ||
+      filters.owners.length > 0 ||
       filters.minLandRank !== null ||
       filters.maxLandRank !== null ||
       filters.minShapeArea !== null ||
@@ -453,6 +459,14 @@ export default function Map({ onParcelSelectForProject = null }) {
       if (filters.zipCodes.length > 0) {
         const zip = String(props.zipcode || '');
         if (!filters.zipCodes.includes(zip)) {
+          return false;
+        }
+      }
+      
+      // Check owner filter (owner1)
+      if (filters.owners.length > 0) {
+        const ownerVal = props.owner1 != null ? String(props.owner1).trim() : "";
+        if (!ownerVal || !filters.owners.includes(ownerVal)) {
           return false;
         }
       }
@@ -765,6 +779,38 @@ export default function Map({ onParcelSelectForProject = null }) {
 
             {/* Council District Filter */}
             <div style={{ marginBottom: "24px" }}>
+              <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>Owner</h3>
+              <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "4px", padding: "8px" }}>
+                {filterOptions.owners.map((owner) => (
+                  <label
+                    key={owner}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "6px 0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.owners.includes(owner)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFilters({ ...filters, owners: [...filters.owners, owner] });
+                        } else {
+                          setFilters({ ...filters, owners: filters.owners.filter((o) => o !== owner) });
+                        }
+                      }}
+                      style={{ marginRight: "8px", cursor: "pointer" }}
+                    />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={owner}>{owner || "N/A"}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Council District Filter */}
+            <div style={{ marginBottom: "24px" }}>
               <h3 style={{ marginBottom: "12px", fontSize: "16px", fontWeight: "600" }}>Council District</h3>
               <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "4px", padding: "8px" }}>
                 {filterOptions.councilDistricts.map((district) => (
@@ -996,6 +1042,7 @@ export default function Map({ onParcelSelectForProject = null }) {
                     councilDistricts: [],
                     zoningDistricts: [],
                     zipCodes: [],
+                    owners: [],
                     minLandRank: null,
                     maxLandRank: null,
                     minShapeArea: null,
