@@ -56,6 +56,9 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
 
   useEffect(() => {
     if (parcel && user?.id) {
+      console.log('User and parcel found, fetching id')
+      console.log('Parcel:', parcel)
+      const image_key = parcel.objectid
       const key = parcel?.parcel_number || parcel?.parcelNumber || parcel?.opa_id || parcel?.address || `${parcel?.lat ?? ''},${parcel?.lon ?? ''}`
       if (key) {
         setLikeLoading(true)
@@ -74,6 +77,7 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
           .finally(() => setLikeLoading(false))
       }
     } else {
+      console.log('No user or parcel, setting liked to false and like count to null')
       setLiked(false)
       setLikeCount(null)
     }
@@ -182,7 +186,7 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
       <div className="lot-details-main">
         {/* Left sidebar for images/street view */}
         <div className="lot-details-sidebar">
-          <PlotImageGallery parcelNumber={initialCensusData?.parcel_number || censusData?.parcel_number} />
+          <PlotImageGallery parcelNumber={parcel?.objectid} />
         </div>
 
         {/* Right content area */}
