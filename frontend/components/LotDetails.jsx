@@ -293,6 +293,95 @@ export default function LotDetails({ parcel = null, onBack = () => {}, scores: i
                   )
                 })}
               </div>
+
+              {/* Distances: nearest park & nearest transit with address and pin */}
+              <div className="lot-details-distances">
+                <h3>Distances</h3>
+                <div className="lot-details-distance-cards">
+                  {scores.nearest_park && typeof scores.nearest_park === 'object' && scores.nearest_park.lat != null && scores.nearest_park.lon != null ? (
+                    <div className="lot-details-distance-card">
+                      <div className="lot-details-distance-card-header">
+                        <a
+                          href={`https://www.openstreetmap.org/?mlat=${scores.nearest_park.lat}&mlon=${scores.nearest_park.lon}&zoom=17`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="lot-details-distance-pin park"
+                          title="View on map"
+                          aria-label="View nearest park on map"
+                        >
+                          📍
+                        </a>
+                        <span className="lot-details-distance-label">Nearest park</span>
+                        <span className="lot-details-distance-value">
+                          {scores.nearest_park.distance_m >= 1000
+                            ? `${(scores.nearest_park.distance_m / 1000).toFixed(2)} km`
+                            : `${Math.round(scores.nearest_park.distance_m)} m`}
+                        </span>
+                      </div>
+                      {(scores.nearest_park.address || scores.nearest_park.name) ? (
+                        <div className="lot-details-distance-address">
+                          {scores.nearest_park.name && scores.nearest_park.address && scores.nearest_park.name !== scores.nearest_park.address
+                            ? <><span className="lot-details-distance-address-label">Name:</span> {scores.nearest_park.name}<br /><span className="lot-details-distance-address-label">Address:</span> {scores.nearest_park.address}</>
+                            : <><span className="lot-details-distance-address-label">Address:</span> {scores.nearest_park.address || scores.nearest_park.name}</>}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="lot-details-distance-card">
+                      <div className="lot-details-distance-card-header">
+                        <span className="lot-details-distance-pin park" style={{ cursor: 'default' }}>📍</span>
+                        <span className="lot-details-distance-label">Nearest park</span>
+                        <span className="lot-details-distance-value">
+                          {scores.distance_to_nearest_park_m != null
+                            ? (scores.distance_to_nearest_park_m >= 1000 ? `${(scores.distance_to_nearest_park_m / 1000).toFixed(2)} km` : `${Math.round(scores.distance_to_nearest_park_m)} m`)
+                            : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {scores.nearest_transit_stop && typeof scores.nearest_transit_stop === 'object' && scores.nearest_transit_stop.lat != null && scores.nearest_transit_stop.lon != null ? (
+                    <div className="lot-details-distance-card">
+                      <div className="lot-details-distance-card-header">
+                        <a
+                          href={`https://www.openstreetmap.org/?mlat=${scores.nearest_transit_stop.lat}&mlon=${scores.nearest_transit_stop.lon}&zoom=17`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="lot-details-distance-pin transit"
+                          title="View on map"
+                          aria-label="View nearest transit stop on map"
+                        >
+                          🚏
+                        </a>
+                        <span className="lot-details-distance-label">Nearest public transit stop</span>
+                        <span className="lot-details-distance-value">
+                          {scores.nearest_transit_stop.distance_m >= 1000
+                            ? `${(scores.nearest_transit_stop.distance_m / 1000).toFixed(2)} km`
+                            : `${Math.round(scores.nearest_transit_stop.distance_m)} m`}
+                        </span>
+                      </div>
+                      {(scores.nearest_transit_stop.address || scores.nearest_transit_stop.name) ? (
+                        <div className="lot-details-distance-address">
+                          {scores.nearest_transit_stop.name && scores.nearest_transit_stop.address && scores.nearest_transit_stop.name !== scores.nearest_transit_stop.address
+                            ? <><span className="lot-details-distance-address-label">Name:</span> {scores.nearest_transit_stop.name}<br /><span className="lot-details-distance-address-label">Address:</span> {scores.nearest_transit_stop.address}</>
+                            : <><span className="lot-details-distance-address-label">Address:</span> {scores.nearest_transit_stop.address || scores.nearest_transit_stop.name}</>}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="lot-details-distance-card">
+                      <div className="lot-details-distance-card-header">
+                        <span className="lot-details-distance-pin transit" style={{ cursor: 'default' }}>🚏</span>
+                        <span className="lot-details-distance-label">Nearest public transit stop</span>
+                        <span className="lot-details-distance-value">
+                          {scores.distance_to_nearest_transit_stop_m != null
+                            ? (scores.distance_to_nearest_transit_stop_m >= 1000 ? `${(scores.distance_to_nearest_transit_stop_m / 1000).toFixed(2)} km` : `${Math.round(scores.distance_to_nearest_transit_stop_m)} m`)
+                            : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             loadingScores && (

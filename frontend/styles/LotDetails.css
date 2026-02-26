@@ -162,3 +162,104 @@
   color: #0f172a;
   font-weight: 600;
 }
+
+/* Distances: nearest park & transit */
+.lot-details-distances {
+  margin-top: 20px;
+}
+
+.lot-details-distances h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #475569;
+  margin: 0 0 12px 0;
+}
+
+.lot-details-distance-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lot-details-distance-card {
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e6edf3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.lot-details-distance-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.lot-details-distance-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lot-details-distance-pin {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  text-decoration: none;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  transition: background 140ms ease, border-color 140ms ease, transform 100ms ease;
+}
+
+.lot-details-distance-pin:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  transform: scale(1.05);
+}
+
+.lot-details-distance-pin.park {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.lot-details-distance-pin.transit {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.lot-details-distance-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  flex: 1;
+}
+
+.lot-details-distance-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.lot-details-distance-address {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.4;
+  padding-left: 46px;
+}
+
+.lot-details-distance-address-label {
+  font-weight: 600;
+  color: #475569;
+  margin-right: 4px;
+}

@@ -265,6 +265,99 @@ def score_transit_accessibility(lat: float, lon: float, transit_stops_df: pd.Dat
     return float(min(10, proximity_score + density_score))
 
 
+def get_distance_to_nearest_park_m(
+    lat: float, lon: float,
+    parks_df: pd.DataFrame, gardens_df: pd.DataFrame, program_sites_df: pd.DataFrame
+):
+    """Return dict with distance_m, address, name, lat, lon for nearest park/garden/site, or None."""
+    try:
+        best = None
+        best_dist = float('inf')
+        if program_sites_df is not None and 'Y' in program_sites_df.columns and 'X' in program_sites_df.columns:
+            sites_valid = program_sites_df[(program_sites_df['Y'].notna()) & (program_sites_df['X'].notna())]
+            if len(sites_valid) > 0:
+                sites_valid = sites_valid.copy()
+                sites_valid['dist'] = sites_valid.apply(
+                    lambda r: calculate_distance(lat, lon, r['Y'], r['X']), axis=1
+                )
+                idx = sites_valid['dist'].idxmin()
+                row = sites_valid.loc[idx]
+                d = float(row['dist'])
+                if d < best_dist and pd.notna(row['Y']) and pd.notna(row['X']):
+                    best_dist = d
+                    name = row.get('park_name') or row.get('SITE_NAME')
+                    best = {'dist': d, 'address': None, 'name': str(name).strip() if pd.notna(name) and str(name).strip() else 'Park / recreation site', 'lat': float(row['Y']), 'lon': float(row['X'])}
+        if gardens_df is not None and 'Y' in gardens_df.columns and 'X' in gardens_df.columns:
+            gardens_valid = gardens_df[(gardens_df['Y'].notna()) & (gardens_df['X'].notna())]
+            if len(gardens_valid) > 0:
+                gardens_valid = gardens_valid.copy()
+                gardens_valid['dist'] = gardens_valid.apply(
+                    lambda r: calculate_distance(lat, lon, r['Y'], r['X']), axis=1
+                )
+                idx = gardens_valid['dist'].idxmin()
+                row = gardens_valid.loc[idx]
+                d = float(row['dist'])
+                if d < best_dist and pd.notna(row['Y']) and pd.notna(row['X']):
+                    best_dist = d
+                    addr = row.get('ADDRESS') or row.get('Address')
+                    name = row.get('GARDEN_NAME') or row.get('Garden_Name')
+                    best = {'dist': d, 'address': str(addr).strip() if pd.notna(addr) and str(addr).strip() else None, 'name': str(name).strip() if pd.notna(name) and str(name).strip() else None, 'lat': float(row['Y']), 'lon': float(row['X'])}
+        if best is None:
+            return None
+        return {
+            'distance_m': round(best['dist'], 1),
+            'address': best.get('address') or best.get('name'),
+            'name': best.get('name'),
+            'lat': best['lat'],
+            'lon': best['lon'],
+        }
+    except Exception:
+        return None
+
+
+def get_distance_to_nearest_transit_stop_m(lat: float, lon: float, transit_stops_df: pd.DataFrame):
+    """Return dict with distance_m, address, name, lat, lon for nearest transit stop, or None."""
+    try:
+        if transit_stops_df is None or len(transit_stops_df) == 0:
+            return None
+        lat_col = None
+        lon_col = None
+        for c in transit_stops_df.columns:
+            if c in ('Lat', 'LAT', 'lat', 'latitude'):
+                lat_col = c
+            if c in ('Lon', 'LON', 'lon', 'longitude', 'lng'):
+                lon_col = c
+        if lat_col is None or lon_col is None:
+            return None
+        stops_valid = transit_stops_df[(transit_stops_df[lat_col].notna()) & (transit_stops_df[lon_col].notna())]
+        if len(stops_valid) == 0:
+            return None
+        stops_valid = stops_valid.copy()
+        stops_valid['dist'] = stops_valid.apply(
+            lambda r: calculate_distance(lat, lon, r[lat_col], r[lon_col]), axis=1
+        )
+        row = stops_valid.loc[stops_valid['dist'].idxmin()]
+        addr = None
+        for col in ('Address', 'ADDRESS', 'address', 'Stop_Address'):
+            if col in row.index and pd.notna(row.get(col)) and str(row[col]).strip():
+                addr = str(row[col]).strip()
+                break
+        name = None
+        for col in ('Stop_Name', 'STOP_NAME', 'stop_name', 'Name', 'StopName'):
+            if col in row.index and pd.notna(row.get(col)) and str(row[col]).strip():
+                name = str(row[col]).strip()
+                break
+        return {
+            'distance_m': round(float(row['dist']), 1),
+            'address': addr or name,
+            'name': name,
+            'lat': float(row[lat_col]),
+            'lon': float(row[lon_col]),
+        }
+    except Exception:
+        return None
+
+
 def score_bike_infrastructure(lat: float, lon: float, bike_network_df: pd.DataFrame, 
                               complete_streets_df: pd.DataFrame) -> float:
     bike_score = 0.0
@@ -290,12 +383,26 @@ def calculate_all_scores(lat: float, lon: float) -> Dict[str, float]:
     transit = score_transit_accessibility(lat, lon, transit_stops_df)
     walkability = score_walkability(lat, lon, parks_df, trails_df, gardens_df, program_sites_df, complete_streets_df, transit_stops_df)
     
-    return {
+    dist_park = get_distance_to_nearest_park_m(lat, lon, parks_df, gardens_df, program_sites_df)
+    dist_transit = get_distance_to_nearest_transit_stop_m(lat, lon, transit_stops_df)
+    
+    result = {
         'environmental_score': environmental,
         'recreational_score': recreational,
         'transit_score': transit,
         'walkability_score': walkability
     }
+    try:
+        result['nearest_park'] = dist_park
+        result['nearest_transit_stop'] = dist_transit
+        result['distance_to_nearest_park_m'] = dist_park['distance_m'] if dist_park else None
+        result['distance_to_nearest_transit_stop_m'] = dist_transit['distance_m'] if dist_transit else None
+    except Exception:
+        result['nearest_park'] = None
+        result['nearest_transit_stop'] = None
+        result['distance_to_nearest_park_m'] = None
+        result['distance_to_nearest_transit_stop_m'] = None
+    return result
 
 
 def score_location(lat: float, lon: float) -> Dict[str, float]:

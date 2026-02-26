@@ -576,6 +576,68 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                   )
                 })}
               </div>
+              {/* Distances: nearest park & transit with address and pin */}
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13, color: '#475569' }}>Distances</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {scores.nearest_park && typeof scores.nearest_park === 'object' && scores.nearest_park.lat != null ? (
+                    <div style={{ padding: '10px 12px', background: '#fff', borderRadius: 10, border: '1px solid #e6edf3', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <a href={`https://www.openstreetmap.org/?mlat=${scores.nearest_park.lat}&mlon=${scores.nearest_park.lon}&zoom=17`} target="_blank" rel="noopener noreferrer" style={{ width: 32, height: 32, borderRadius: 8, background: '#dcfce7', border: '1px solid #bbf7d0', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, textDecoration: 'none' }} title="View on map">📍</a>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>Nearest park</div>
+                          {(scores.nearest_park.address || scores.nearest_park.name) && (
+                            <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
+                              {scores.nearest_park.name && scores.nearest_park.address && scores.nearest_park.name !== scores.nearest_park.address
+                                ? <>Name: {scores.nearest_park.name} · Address: {scores.nearest_park.address}</>
+                                : <>Address: {scores.nearest_park.address || scores.nearest_park.name}</>}
+                            </div>
+                          )}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          {scores.nearest_park.distance_m >= 1000 ? `${(scores.nearest_park.distance_m / 1000).toFixed(2)} km` : `${Math.round(scores.nearest_park.distance_m)} m`}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e6edf3', fontSize: 12 }}>
+                      <span style={{ width: 32, height: 32, borderRadius: 8, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📍</span>
+                      <span style={{ color: '#475569' }}>Nearest park</span>
+                      <span style={{ fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
+                        {scores.distance_to_nearest_park_m != null ? (scores.distance_to_nearest_park_m >= 1000 ? `${(scores.distance_to_nearest_park_m / 1000).toFixed(2)} km` : `${Math.round(scores.distance_to_nearest_park_m)} m`) : 'N/A'}
+                      </span>
+                    </div>
+                  )}
+                  {scores.nearest_transit_stop && typeof scores.nearest_transit_stop === 'object' && scores.nearest_transit_stop.lat != null ? (
+                    <div style={{ padding: '10px 12px', background: '#fff', borderRadius: 10, border: '1px solid #e6edf3', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <a href={`https://www.openstreetmap.org/?mlat=${scores.nearest_transit_stop.lat}&mlon=${scores.nearest_transit_stop.lon}&zoom=17`} target="_blank" rel="noopener noreferrer" style={{ width: 32, height: 32, borderRadius: 8, background: '#dbeafe', border: '1px solid #bfdbfe', color: '#1e40af', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, textDecoration: 'none' }} title="View on map">🚏</a>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>Nearest transit stop</div>
+                          {(scores.nearest_transit_stop.address || scores.nearest_transit_stop.name) && (
+                            <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
+                              {scores.nearest_transit_stop.name && scores.nearest_transit_stop.address && scores.nearest_transit_stop.name !== scores.nearest_transit_stop.address
+                                ? <>Name: {scores.nearest_transit_stop.name} · Address: {scores.nearest_transit_stop.address}</>
+                                : <>Address: {scores.nearest_transit_stop.address || scores.nearest_transit_stop.name}</>}
+                            </div>
+                          )}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                          {scores.nearest_transit_stop.distance_m >= 1000 ? `${(scores.nearest_transit_stop.distance_m / 1000).toFixed(2)} km` : `${Math.round(scores.nearest_transit_stop.distance_m)} m`}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e6edf3', fontSize: 12 }}>
+                      <span style={{ width: 32, height: 32, borderRadius: 8, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🚏</span>
+                      <span style={{ color: '#475569' }}>Nearest transit stop</span>
+                      <span style={{ fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
+                        {scores.distance_to_nearest_transit_stop_m != null ? (scores.distance_to_nearest_transit_stop_m >= 1000 ? `${(scores.distance_to_nearest_transit_stop_m / 1000).toFixed(2)} km` : `${Math.round(scores.distance_to_nearest_transit_stop_m)} m`) : 'N/A'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             loadingScores && (

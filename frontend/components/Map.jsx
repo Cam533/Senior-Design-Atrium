@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
-import { useMap } from "react-leaflet";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import { Popup, CircleMarker } from "react-leaflet";
 import Chat from "./Chat";
 import ParcelChat from "./ParcelChat";
 import L from "leaflet";
@@ -100,6 +100,46 @@ function ChunkedGeoJSON({ data, batchSize = 300, options = {} }) {
   return null;
 }
 
+// Renders circle markers for nearest park and transit on the map
+function NearestPlacesMarkers({ nearestPark, nearestTransitStop }) {
+  return (
+    <>
+      {nearestPark && typeof nearestPark.lat === "number" && typeof nearestPark.lon === "number" && (
+        <CircleMarker
+          center={[nearestPark.lat, nearestPark.lon]}
+          pathOptions={{ color: "#16a34a", fillColor: "#16a34a", fillOpacity: 0.8, weight: 2 }}
+          radius={10}
+        >
+          <Popup>
+            <strong>Nearest park</strong>
+            {nearestPark.name && <div>{nearestPark.name}</div>}
+            {nearestPark.address && <div>{nearestPark.address}</div>}
+            {nearestPark.distance_m != null && (
+              <div>{nearestPark.distance_m < 1000 ? `${Math.round(nearestPark.distance_m)} m` : `${(nearestPark.distance_m / 1000).toFixed(1)} km`}</div>
+            )}
+          </Popup>
+        </CircleMarker>
+      )}
+      {nearestTransitStop && typeof nearestTransitStop.lat === "number" && typeof nearestTransitStop.lon === "number" && (
+        <CircleMarker
+          center={[nearestTransitStop.lat, nearestTransitStop.lon]}
+          pathOptions={{ color: "#2563eb", fillColor: "#2563eb", fillOpacity: 0.8, weight: 2 }}
+          radius={10}
+        >
+          <Popup>
+            <strong>Nearest transit</strong>
+            {nearestTransitStop.name && <div>{nearestTransitStop.name}</div>}
+            {nearestTransitStop.address && <div>{nearestTransitStop.address}</div>}
+            {nearestTransitStop.distance_m != null && (
+              <div>{nearestTransitStop.distance_m < 1000 ? `${Math.round(nearestTransitStop.distance_m)} m` : `${(nearestTransitStop.distance_m / 1000).toFixed(1)} km`}</div>
+            )}
+          </Popup>
+        </CircleMarker>
+      )}
+    </>
+  );
+}
+
 export default function Map({ onParcelSelectForProject = null }) {
   const [mapData, setMapData] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
@@ -109,6 +149,8 @@ export default function Map({ onParcelSelectForProject = null }) {
   const [selectedPolygon, setSelectedPolygon] = useState(null);
   const [showParcelChat, setShowParcelChat] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [nearestPark, setNearestPark] = useState(null);
+  const [nearestTransitStop, setNearestTransitStop] = useState(null);
   const [filters, setFilters] = useState({
     landTypes: [],
     councilDistricts: [],
@@ -153,6 +195,8 @@ export default function Map({ onParcelSelectForProject = null }) {
       };
     }
   }, [mapInstance]);
+
+  // display nearest park and transit stop on map
 
   // Define the per-feature interaction handler so it can be used by the chunked loader
   const handleEachFeature = React.useCallback((feature, layer) => {
@@ -369,8 +413,41 @@ export default function Map({ onParcelSelectForProject = null }) {
         } catch (err) {}
         selectedLayerRef.current = null;
       }
+      setNearestPark(null);
+      setNearestTransitStop(null);
     }
   }, [showParcelChat, selectedPolygon, defaultLayerStyle]);
+
+  // Fetch nearest park and transit for the selected parcel so we can show them on the map
+  useEffect(() => {
+    const lat = selectedPolygon?.lat;
+    const lon = selectedPolygon?.lon;
+    if (lat == null || lon == null || typeof lat !== "number" || typeof lon !== "number") return;
+    let cancelled = false;
+    fetch("http://localhost:8000/geographic_scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat, lon }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const park = data?.nearest_park;
+        const transit = data?.nearest_transit_stop;
+        if (park && typeof park.lat === "number" && typeof park.lon === "number") setNearestPark(park);
+        else setNearestPark(null);
+        if (transit && typeof transit.lat === "number" && typeof transit.lon === "number") setNearestTransitStop(transit);
+        else setNearestTransitStop(null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNearestPark(null);
+          setNearestTransitStop(null);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [selectedPolygon?.lat, selectedPolygon?.lon]);
+
   // Extract unique filter values from mapData
   const filterOptions = React.useMemo(() => {
     if (!mapData || !mapData.features) return { landTypes: [], councilDistricts: [], zoningDistricts: [], zipCodes: [], owners: [] };
@@ -578,6 +655,7 @@ export default function Map({ onParcelSelectForProject = null }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           {filteredMapData && <ChunkedGeoJSON data={filteredMapData} batchSize={300} options={chunkOptions} />}
+          <NearestPlacesMarkers nearestPark={nearestPark} nearestTransitStop={nearestTransitStop} />
         </MapContainer>
       </div>
 
