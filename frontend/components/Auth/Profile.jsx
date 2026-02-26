@@ -36,9 +36,11 @@ export default function Profile() {
   const [organization, setOrganization] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
   const [otherSpecify, setOtherSpecify] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [emailPlotUpdates, setEmailPlotUpdates] = useState(true)
+  const [emailProductNews, setEmailProductNews] = useState(false)
+  const [unsubscribeAll, setUnsubscribeAll] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [savingPreferences, setSavingPreferences] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [message, setMessage] = useState('')
@@ -82,6 +84,9 @@ export default function Profile() {
           setOrganization(data.organization || '')
           setNeighborhood(data.neighborhood || '')
           setOtherSpecify(data.other_specify || '')
+          setEmailPlotUpdates(data.email_plot_updates !== false)
+          setEmailProductNews(data.email_product_news === true)
+          setUnsubscribeAll(data.unsubscribe_all === true)
         }
       } catch (err) {
         console.error('Error loading profile:', err)
@@ -212,6 +217,30 @@ export default function Profile() {
     }
 
     setLoading(false)
+  }
+
+  const handleUpdatePreferences = async (e) => {
+    e.preventDefault()
+    setSavingPreferences(true)
+    setError('')
+    setMessage('')
+    try {
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          email_plot_updates: unsubscribeAll ? false : emailPlotUpdates,
+          email_product_news: unsubscribeAll ? false : emailProductNews,
+          unsubscribe_all: unsubscribeAll,
+        })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+      setMessage('Preferences saved.')
+      setMessageTab('preferences')
+    } catch (err) {
+      setError(err.message)
+    }
+    setSavingPreferences(false)
   }
 
   const handleLogout = async () => {
@@ -407,9 +436,49 @@ export default function Profile() {
           {activeTab === 'preferences' && (
             <>
               <h2 className="profile-content-heading">Preferences</h2>
-              <p className="profile-date">
+              <p className="profile-date" style={{ marginBottom: '20px' }}>
                 Notification and display preferences can be configured here.
               </p>
+              <form onSubmit={handleUpdatePreferences} className="auth-form">
+                <div className="form-group">
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={emailPlotUpdates}
+                      onChange={(e) => setEmailPlotUpdates(e.target.checked)}
+                      disabled={unsubscribeAll}
+                    />
+                    <span>Email me about plot updates</span>
+                  </label>
+                  <p className="profile-pref-hint">Receive emails when plots you follow or care about are updated.</p>
+                </div>
+                <div className="form-group">
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={emailProductNews}
+                      onChange={(e) => setEmailProductNews(e.target.checked)}
+                      disabled={unsubscribeAll}
+                    />
+                    <span>Email me product and feature news</span>
+                  </label>
+                  <p className="profile-pref-hint">Occasional updates about new features and improvements.</p>
+                </div>
+                <div className="form-group">
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={unsubscribeAll}
+                      onChange={(e) => setUnsubscribeAll(e.target.checked)}
+                    />
+                    <span>Unsubscribe from all emails</span>
+                  </label>
+                  <p className="profile-pref-hint">Turn off all notification and marketing emails.</p>
+                </div>
+                <button type="submit" disabled={savingPreferences}>
+                  {savingPreferences ? 'Saving...' : 'Save preferences'}
+                </button>
+              </form>
             </>
           )}
 

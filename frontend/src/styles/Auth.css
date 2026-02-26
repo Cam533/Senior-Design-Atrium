@@ -180,6 +180,19 @@
   gap: 10px;
 }
 
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.profile-pref-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 4px 0 0 26px;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
