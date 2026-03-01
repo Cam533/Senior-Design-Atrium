@@ -59,7 +59,7 @@ export default function LikedLots() {
           No liked lots yet. Click the heart on a lot to save it here.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginRight: 30 }}>
           {likedLots.map((lot) => {
             const parcel = typeof lot.parcel === 'string' ? (() => { try { return JSON.parse(lot.parcel) } catch (e) { return {} } })() : (lot.parcel || {})
             return (
@@ -87,7 +87,7 @@ export default function LikedLots() {
                   </div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, marginRight: 12 }}>
                 <button
                   type="button"
                   onClick={() => setSelected({ ...lot, parcel })}

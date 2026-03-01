@@ -32,6 +32,8 @@ export default function Profile() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [userType, setUserType] = useState('')
   const [organization, setOrganization] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
@@ -485,48 +487,57 @@ export default function Profile() {
           {activeTab === 'account' && (
             <>
               <h2 className="profile-content-heading">Security</h2>
-              <p className="profile-delete-warning" style={{ marginBottom: '20px' }}>
-                Change your password, sign out, or permanently delete your account.
+              <p className="profile-date" style={{ marginBottom: '20px' }}>
+                Manage your password, sessions, and account deletion.
               </p>
 
-              <h3 className="profile-section-label">Change password</h3>
-              <form onSubmit={handleChangePassword} className="auth-form profile-security-form">
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="New password"
-                  disabled={loading}
-                />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  disabled={loading}
-                />
+              <h3 className="profile-section-label">Change Password</h3>
+              <form onSubmit={handleChangePassword} className="auth-form">
+                <div className="form-group">
+                  <label htmlFor="newPassword">New Password</label>
+                  <input
+                    id="newPassword"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    disabled={loading}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="confirmPassword">Confirm Password</label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    disabled={loading}
+                  />
+                </div>
                 <button type="submit" disabled={loading}>
                   {loading ? 'Changing...' : 'Change Password'}
                 </button>
               </form>
 
-              <h3 className="profile-section-label">Logout</h3>
+              <h3 className="profile-section-label" style={{ marginTop: '30px' }}>Logout</h3>
+              <p className="profile-date" style={{ marginBottom: '12px' }}>Sign out from this device.</p>
               <button type="button" onClick={handleLogout} className="auth-logout-btn">
                 Logout
               </button>
 
-              <h3 className="profile-section-label">Delete account</h3>
+              <h3 className="profile-section-label" style={{ marginTop: '30px' }}>Delete Account</h3>
               <p className="profile-delete-warning">
-                This permanently deletes your account and cannot be undone.
+                Permanently delete your account and all associated data. This action cannot be undone.
               </p>
               <button
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={deleting}
                 className="auth-logout-btn"
-                style={{ marginTop: '8px' }}
+                style={{ marginTop: '12px', backgroundColor: '#dc2626' }}
               >
-                {deleting ? 'Deleting...' : 'Permanently delete my account'}
+                {deleting ? 'Deleting...' : 'Permanently Delete Account'}
               </button>
             </>
           )}
