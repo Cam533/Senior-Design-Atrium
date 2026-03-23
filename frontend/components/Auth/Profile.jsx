@@ -547,7 +547,7 @@ export default function Profile() {
                 onClick={handleDeleteAccount}
                 disabled={deleting}
                 className="auth-logout-btn"
-                style={{ marginTop: '12px', backgroundColor: '#dc2626' }}
+                style={{ marginTop: '12px', backgroundColor: '#dc2626', color: '#fff' }}
               >
                 {deleting ? 'Deleting...' : 'Permanently Delete Account'}
               </button>

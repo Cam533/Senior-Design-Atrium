@@ -109,7 +109,7 @@ function MapPage() {
 function ChatPage() {
   return (
     <main className="main-content">
-      <div className="chat-container">
+      <div className="projects-container">
         <LikedLots />
       </div>
     </main>

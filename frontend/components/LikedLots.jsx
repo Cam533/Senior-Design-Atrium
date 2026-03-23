@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import LotDetails from './LotDetails'
 import { fetchLikedLots, removeLikeByKey } from '../utils/likedLots'
 import { useAuth } from '../src/context/AuthContext'
+import '../styles/Projects.css'
 
 export default function LikedLots() {
   const [likedLots, setLikedLots] = useState([])
@@ -41,22 +42,27 @@ export default function LikedLots() {
     )
   }
 
+  if (!user?.id) {
+    return (
+      <div className="projects-page">
+        <div className="projects-login-prompt">
+          <h1 className="projects-title">Liked Lots</h1>
+          <p className="projects-subtitle">You need to be logged in to see your liked lots.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ padding: 16, maxWidth: 900, margin: '0 auto', width: '100%' }}>
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, color: '#0f172a' }}>
         Liked Lots
       </div>
-      {!user?.id ? (
-        <div style={{ color: '#64748b', fontSize: 14 }}>
-          Log in to view your liked lots.
-        </div>
-      ) : loading ? (
-        <div style={{ color: '#64748b', fontSize: 14 }}>Loading liked lots…</div>
-      ) : error ? (
+      {error ? (
         <div style={{ color: '#b91c1c', fontSize: 14 }}>{error}</div>
       ) : likedLots.length === 0 ? (
         <div style={{ color: '#64748b', fontSize: 14 }}>
-          No liked lots yet. Click the heart on a lot to save it here.
+          You haven’t liked a lot yet. Click the heart on a lot to save it here.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginRight: 30 }}>

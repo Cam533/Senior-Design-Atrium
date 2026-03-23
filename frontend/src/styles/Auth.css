@@ -325,8 +325,9 @@
 }
 
 .auth-logout-btn:hover:not(:disabled) {
-  background: #dc2626;
-  color: #fff;
+  background: #fff;
+  border-color: #dc2626;
+  color: #dc2626;
 }
 
 .auth-logout-btn:disabled {
