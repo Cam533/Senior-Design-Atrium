@@ -7,7 +7,7 @@ const AVATAR_BUCKET = 'avatars'
 const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 
-function getInitials(firstName, lastName, email) {
+function getInitials(firstName, lastName) {
   const placeholderLike = (s) => /^(first|last)(\s+name)?$/i.test((s || '').trim())
   const first = (firstName || '').trim()
   const last = (lastName || '').trim()
@@ -15,8 +15,7 @@ function getInitials(firstName, lastName, email) {
   const hasLast = last && !placeholderLike(last)
   if (hasFirst && hasLast) return `${first[0]}${last[0]}`.toUpperCase()
   if (hasFirst) return first[0].toUpperCase()
-  if (email) return email[0].toUpperCase()
-  return '?'
+  return ''
 }
 
 export default function Signup() {
@@ -30,6 +29,7 @@ export default function Signup() {
   const [message, setMessage] = useState('')
   const { signup, user } = useAuth()
   const navigate = useNavigate()
+  const initials = getInitials(firstName, lastName)
 
   useEffect(() => {
     if (user) {
@@ -88,10 +88,12 @@ export default function Signup() {
             <div className="profile-avatar-wrap">
               {avatarPreviewUrl ? (
                 <img src={avatarPreviewUrl} alt="Profile" className="profile-avatar profile-avatar-img" />
-              ) : (
+              ) : initials ? (
                 <div className="profile-avatar profile-avatar-initials" aria-hidden>
-                  {getInitials(firstName, lastName, email)}
+                  {initials}
                 </div>
+              ) : (
+                <div className="profile-avatar" aria-hidden />
               )}
             </div>
             <div className="profile-avatar-actions">
@@ -110,25 +112,26 @@ export default function Signup() {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="signup-firstName">First name</label>
+              <label htmlFor="signup-firstName">First Name</label>
               <input
                 id="signup-firstName"
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="First name"
+                placeholder="First Name"
                 required
                 disabled={loading}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="signup-lastName">Last name</label>
+              <label htmlFor="signup-lastName">Last Name</label>
               <input
                 id="signup-lastName"
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Last name"
+                placeholder="Last Name"
+                required
                 disabled={loading}
               />
             </div>

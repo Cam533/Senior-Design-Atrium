@@ -16,7 +16,7 @@ const AVATAR_BUCKET = 'avatars'
 const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 
-function getInitials(firstName, lastName, email) {
+function getInitials(firstName, lastName) {
   const placeholderLike = (s) => /^(first|last)(\s+name)?$/i.test((s || '').trim())
   const first = (firstName || '').trim()
   const last = (lastName || '').trim()
@@ -24,8 +24,7 @@ function getInitials(firstName, lastName, email) {
   const hasLast = last && !placeholderLike(last)
   if (hasFirst && hasLast) return `${first[0]}${last[0]}`.toUpperCase()
   if (hasFirst) return first[0].toUpperCase()
-  if (email) return email[0].toUpperCase()
-  return '?'
+  return ''
 }
 
 export default function ProfileSetup() {
@@ -48,6 +47,7 @@ export default function ProfileSetup() {
   const { user, signup } = useAuth()
   const navigate = useNavigate()
   const isNewSignup = !user
+  const initials = getInitials(firstName, lastName)
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0]
@@ -72,6 +72,14 @@ export default function ProfileSetup() {
     e.preventDefault()
     setLoading(true)
     setError('')
+    const trimmedFirstName = firstName.trim()
+    const trimmedLastName = lastName.trim()
+
+    if (!trimmedFirstName || !trimmedLastName) {
+      setError('First name and last name are required.')
+      setLoading(false)
+      return
+    }
 
     try {
       let targetUser = user
@@ -111,8 +119,8 @@ export default function ProfileSetup() {
         .upsert({
           id: targetUser.id,
           email: targetUser.email,
-          first_name: firstName.trim() || null,
-          last_name: lastName.trim() || null,
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
           avatar_url: avatarUrl,
           user_type: userType,
           organization: organization || null,
@@ -150,10 +158,12 @@ export default function ProfileSetup() {
             <div className="profile-avatar-wrap">
               {avatarPreviewUrl ? (
                 <img src={avatarPreviewUrl} alt="Profile" className="profile-avatar profile-avatar-img" />
-              ) : (
+              ) : initials ? (
                 <div className="profile-avatar profile-avatar-initials" aria-hidden>
-                  {getInitials(firstName, lastName, isNewSignup ? email : user?.email)}
+                  {initials}
                 </div>
+              ) : (
+                <div className="profile-avatar" aria-hidden />
               )}
             </div>
             <div className="profile-avatar-actions">
@@ -172,23 +182,25 @@ export default function ProfileSetup() {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="firstName">First name (optional)</label>
+              <label htmlFor="firstName">First Name</label>
               <input
                 id="firstName"
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="First name"
+                placeholder="First Name"
+                required
               />
             </div>
             <div className="form-group">
-              <label htmlFor="lastName">Last name (optional)</label>
+              <label htmlFor="lastName">Last Name</label>
               <input
                 id="lastName"
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Last name"
+                placeholder="Last Name"
+                required
               />
             </div>
           </div>
@@ -279,7 +291,7 @@ export default function ProfileSetup() {
 
           {error && <p className="auth-error">{error}</p>}
 
-          <button type="submit" disabled={loading || !userType || (isNewSignup && (!email.trim() || !password))}>
+          <button type="submit" disabled={loading || !firstName.trim() || !lastName.trim() || !userType || (isNewSignup && (!email.trim() || !password))}>
             {loading ? 'Saving...' : 'Complete Profile'}
           </button>
         </form>

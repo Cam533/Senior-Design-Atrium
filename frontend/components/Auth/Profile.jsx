@@ -16,7 +16,7 @@ const AVATAR_BUCKET = 'avatars'
 const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
 const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 
-function getInitials(firstName, lastName, email) {
+function getInitials(firstName, lastName) {
   const placeholderLike = (s) => /^(first|last)(\s+name)?$/i.test((s || '').trim())
   const first = (firstName || '').trim()
   const last = (lastName || '').trim()
@@ -24,8 +24,7 @@ function getInitials(firstName, lastName, email) {
   const hasLast = last && !placeholderLike(last)
   if (hasFirst && hasLast) return `${first[0]}${last[0]}`.toUpperCase()
   if (hasFirst) return first[0].toUpperCase()
-  if (email) return email[0].toUpperCase()
-  return '?'
+  return ''
 }
 
 export default function Profile() {
@@ -52,6 +51,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState('profile')
   const { user, session, logout } = useAuth()
   const navigate = useNavigate()
+  const initials = getInitials(firstName, lastName)
 
   const TABS = [
     { id: 'profile', label: 'Profile' },
@@ -105,6 +105,14 @@ export default function Profile() {
     setLoading(true)
     setError('')
     setMessage('')
+    const trimmedFirstName = firstName.trim()
+    const trimmedLastName = lastName.trim()
+
+    if (!trimmedFirstName || !trimmedLastName) {
+      setError('First name and last name are required.')
+      setLoading(false)
+      return
+    }
 
     try {
       const { error: upsertError } = await supabase
@@ -112,8 +120,8 @@ export default function Profile() {
         .upsert({
           id: user.id,
           email: user.email,
-          first_name: firstName.trim() || null,
-          last_name: lastName.trim() || null,
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
           avatar_url: avatarUrl || null,
           user_type: userType,
           organization: organization || null,
@@ -323,10 +331,12 @@ export default function Profile() {
             <div className="profile-avatar-wrap">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Profile" className="profile-avatar profile-avatar-img" />
-              ) : (
+              ) : initials ? (
                 <div className="profile-avatar profile-avatar-initials" aria-hidden>
-                  {getInitials(firstName, lastName, user?.email)}
+                  {initials}
                 </div>
+              ) : (
+                <div className="profile-avatar" aria-hidden />
               )}
             </div>
             <div className="profile-avatar-actions">
@@ -345,23 +355,25 @@ export default function Profile() {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="firstName">First name</label>
+              <label htmlFor="firstName">First Name</label>
               <input
                 id="firstName"
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                placeholder="First name"
+                placeholder="First Name"
+                required
               />
             </div>
             <div className="form-group">
-              <label htmlFor="lastName">Last name</label>
+              <label htmlFor="lastName">Last Name</label>
               <input
                 id="lastName"
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Last name"
+                placeholder="Last Name"
+                required
               />
             </div>
           </div>
@@ -428,7 +440,7 @@ export default function Profile() {
             />
           </div>
 
-          <button type="submit" disabled={loading}>
+          <button type="submit" disabled={loading || !firstName.trim() || !lastName.trim()}>
             {loading ? 'Updating...' : 'Update Profile'}
           </button>
         </form>
