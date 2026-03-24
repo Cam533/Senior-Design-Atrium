@@ -9,6 +9,7 @@ import {
 import Map from "../components/Map";
 import LikedLots from "../components/LikedLots";
 import Projects from "../components/Projects";
+import About from "../components/About";
 import NotificationBell, { useUnreadCount } from "../components/Notifications";
 import Login from "../components/Auth/Login";
 import ProfileSetup from "../components/Auth/ProfileSetup";
@@ -22,10 +23,10 @@ function Topbar({ unreadCount, onRead }) {
 
   return (
     <div className="topbar">
-      <div className="brand">
+      <Link to="/about" className="brand" style={{ textDecoration: 'none', color: 'white' }}>
         <img src={atriumIcon} alt="Atrium icon" className="brand-icon" />
         <div className="brand-text">atrium</div>
-      </div>
+      </Link>
       <nav className="topbar-nav">
         <Link
           to="/"
@@ -130,6 +131,14 @@ function ProjectsPage() {
   );
 }
 
+function AboutPage() {
+  return (
+    <main style={{ flex: '1 1 auto', overflowY: 'auto' }}>
+      <About />
+    </main>
+  );
+}
+
 function AppShell() {
   const { count, refresh } = useUnreadCount();
 
@@ -138,6 +147,7 @@ function AppShell() {
       <Topbar unreadCount={count} onRead={refresh} />
       <Routes>
         <Route path="/" element={<MapPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/login" element={<Login />} />
