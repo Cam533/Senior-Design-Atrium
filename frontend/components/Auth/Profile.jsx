@@ -37,9 +37,9 @@ export default function Profile() {
   const [organization, setOrganization] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
   const [otherSpecify, setOtherSpecify] = useState('')
-  const [emailPlotUpdates, setEmailPlotUpdates] = useState(true)
-  const [emailProductNews, setEmailProductNews] = useState(false)
-  const [unsubscribeAll, setUnsubscribeAll] = useState(false)
+  const [notifyPlotLikes, setNotifyPlotLikes] = useState(true)
+  const [notifyPlotImages, setNotifyPlotImages] = useState(false)
+  const [muteAll, setMuteAll] = useState(false)
   const [loading, setLoading] = useState(false)
   const [savingPreferences, setSavingPreferences] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(true)
@@ -86,9 +86,9 @@ export default function Profile() {
           setOrganization(data.organization || '')
           setNeighborhood(data.neighborhood || '')
           setOtherSpecify(data.other_specify || '')
-          setEmailPlotUpdates(data.email_plot_updates !== false)
-          setEmailProductNews(data.email_product_news === true)
-          setUnsubscribeAll(data.unsubscribe_all === true)
+          setNotifyPlotLikes(data.email_plot_updates !== false)
+          setNotifyPlotImages(data.email_product_news === true)
+          setMuteAll(data.unsubscribe_all === true)
         }
       } catch (err) {
         console.error('Error loading profile:', err)
@@ -238,9 +238,9 @@ export default function Profile() {
       const { error: updateError } = await supabase
         .from('users')
         .update({
-          email_plot_updates: unsubscribeAll ? false : emailPlotUpdates,
-          email_product_news: unsubscribeAll ? false : emailProductNews,
-          unsubscribe_all: unsubscribeAll,
+          email_plot_updates: muteAll ? false : notifyPlotLikes,
+          email_product_news: muteAll ? false : notifyPlotImages,
+          unsubscribe_all: muteAll,
         })
         .eq('id', user.id)
 
@@ -449,45 +449,45 @@ export default function Profile() {
 
           {activeTab === 'preferences' && (
             <>
-              <h2 className="profile-content-heading">Preferences</h2>
+              <h2 className="profile-content-heading">Notifications</h2>
               <p className="profile-date" style={{ marginBottom: '20px' }}>
-                Notification and display preferences can be configured here.
+                Choose which in-website notifications you receive.
               </p>
               <form onSubmit={handleUpdatePreferences} className="auth-form">
                 <div className="form-group">
                   <label className="checkbox-option">
                     <input
                       type="checkbox"
-                      checked={emailPlotUpdates}
-                      onChange={(e) => setEmailPlotUpdates(e.target.checked)}
-                      disabled={unsubscribeAll}
+                      checked={!muteAll && notifyPlotLikes}
+                      onChange={(e) => setNotifyPlotLikes(e.target.checked)}
+                      disabled={muteAll}
                     />
-                    <span>Email me about plot updates</span>
+                    <span>Notify me when someone likes a lot I saved</span>
                   </label>
-                  <p className="profile-pref-hint">Receive emails when plots you follow or care about are updated.</p>
+                  <p className="profile-pref-hint">Get notified when another user likes a parcel you have saved.</p>
                 </div>
                 <div className="form-group">
                   <label className="checkbox-option">
                     <input
                       type="checkbox"
-                      checked={emailProductNews}
-                      onChange={(e) => setEmailProductNews(e.target.checked)}
-                      disabled={unsubscribeAll}
+                      checked={!muteAll && notifyPlotImages}
+                      onChange={(e) => setNotifyPlotImages(e.target.checked)}
+                      disabled={muteAll}
                     />
-                    <span>Email me product and feature news</span>
+                    <span>Notify me when a new photo is added to a lot I saved</span>
                   </label>
-                  <p className="profile-pref-hint">Occasional updates about new features and improvements.</p>
+                  <p className="profile-pref-hint">Get notified when someone uploads a photo to a parcel you have saved.</p>
                 </div>
                 <div className="form-group">
                   <label className="checkbox-option">
                     <input
                       type="checkbox"
-                      checked={unsubscribeAll}
-                      onChange={(e) => setUnsubscribeAll(e.target.checked)}
+                      checked={muteAll}
+                      onChange={(e) => setMuteAll(e.target.checked)}
                     />
-                    <span>Unsubscribe from all emails</span>
+                    <span>Mute all notifications</span>
                   </label>
-                  <p className="profile-pref-hint">Turn off all notification and marketing emails.</p>
+                  <p className="profile-pref-hint">Turn off all in-website notifications.</p>
                 </div>
                 <button type="submit" disabled={savingPreferences}>
                   {savingPreferences ? 'Saving...' : 'Save preferences'}

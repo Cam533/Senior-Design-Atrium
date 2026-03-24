@@ -61,7 +61,7 @@ export default function Projects() {
       <div className="projects-page">
         <div className="projects-login-prompt">
           <h1 className="projects-title">Projects</h1>
-          <p className="projects-subtitle">You need to be logged in to see your projects.</p>
+          <p className="projects-subtitle">You must be logged in to see your projects.</p>
         </div>
       </div>
     )

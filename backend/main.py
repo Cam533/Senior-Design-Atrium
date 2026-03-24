@@ -161,6 +161,25 @@ def startup_load_geojson() -> None:
         except Exception as e:
             print("Warning: failed to ensure liked_lots table:", e)
 
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    parcel_key TEXT,
+                    triggered_by TEXT,
+                    read BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_notifications_user
+                    ON notifications(user_id, read, created_at DESC);
+                """))
+        except Exception as e:
+            print("Warning: failed to ensure notifications table:", e)
+
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
@@ -370,6 +389,30 @@ def toggle_liked_lot(req: LikedLotToggleRequest) -> LikedLotStatusResponse:
         ).mappings().first()
         total = int(total_row["total"]) if total_row else 0
 
+        if liked:
+            other_users = conn.execute(
+                text("SELECT user_id FROM liked_lots WHERE parcel_key = :parcel_key AND user_id != :user_id"),
+                {"parcel_key": req.parcel_key, "user_id": req.user_id},
+            ).fetchall()
+            address = (req.parcel or {}).get("address", req.parcel_key)
+            for row in other_users:
+                try:
+                    conn.execute(
+                        text("""
+                        INSERT INTO notifications (user_id, type, message, parcel_key, triggered_by)
+                        VALUES (:user_id, 'like', :message, :parcel_key, :triggered_by)
+                        """),
+                        {
+                            "user_id": row[0],
+                            "type": "like",
+                            "message": f"Someone liked a lot you saved: {address}",
+                            "parcel_key": req.parcel_key,
+                            "triggered_by": req.user_id,
+                        },
+                    )
+                except Exception as e:
+                    print(f"Warning: failed to insert like notification: {e}")
+
     return {"liked": liked, "total_likes": total}
 
 @app.post("/add-aws-user")
@@ -574,7 +617,31 @@ async def upload_plot_image(
         
         # Generate S3 URL
         s3_url = f"https://{_s3_bucket_name}.s3.amazonaws.com/{s3_key}"
-        
+
+        # Notify users who liked this parcel about the new image
+        try:
+            with engine.connect() as notify_conn:
+                likers = notify_conn.execute(
+                    text("SELECT user_id FROM liked_lots WHERE parcel_key = :pk"),
+                    {"pk": parcel_number},
+                ).fetchall()
+            if likers:
+                with engine.begin() as notify_conn:
+                    for row in likers:
+                        notify_conn.execute(
+                            text("""
+                            INSERT INTO notifications (user_id, type, message, parcel_key)
+                            VALUES (:user_id, 'image', :message, :parcel_key)
+                            """),
+                            {
+                                "user_id": row[0],
+                                "message": f"A new photo was uploaded for a lot you saved: {parcel_number}",
+                                "parcel_key": parcel_number,
+                            },
+                        )
+        except Exception as e:
+            print(f"Warning: failed to insert image notification: {e}")
+
         return {
             "status": "ok",
             "file_id": file_id,
@@ -686,6 +753,61 @@ def delete_plot_image(parcel_number: str, file_id: str):
         return {"status": "ok", "message": "Image deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Notifications endpoints ──────────────────────────────────────────
+
+@app.get("/notifications/{user_id}")
+def get_notifications(user_id: str, unread_only: bool = False):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    clause = "AND read = FALSE" if unread_only else ""
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(f"""
+                SELECT id, type, message, parcel_key, triggered_by, read, created_at
+                FROM notifications
+                WHERE user_id = :user_id {clause}
+                ORDER BY created_at DESC
+                LIMIT 100
+            """),
+            {"user_id": user_id},
+        ).mappings().fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.get("/notifications/{user_id}/unread-count")
+def get_unread_count(user_id: str):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = :uid AND read = FALSE"),
+            {"uid": user_id},
+        ).mappings().first()
+    return {"unread": int(row["cnt"]) if row else 0}
+
+
+class MarkReadRequest(BaseModel):
+    notification_ids: List[int] = []
+    mark_all: bool = False
+
+@app.post("/notifications/{user_id}/read")
+def mark_notifications_read(user_id: str, req: MarkReadRequest):
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    with engine.begin() as conn:
+        if req.mark_all:
+            conn.execute(
+                text("UPDATE notifications SET read = TRUE WHERE user_id = :uid AND read = FALSE"),
+                {"uid": user_id},
+            )
+        elif req.notification_ids:
+            conn.execute(
+                text("UPDATE notifications SET read = TRUE WHERE user_id = :uid AND id = ANY(:ids)"),
+                {"uid": user_id, "ids": req.notification_ids},
+            )
+    return {"status": "ok"}
 
 
 @app.post("/delete-account")

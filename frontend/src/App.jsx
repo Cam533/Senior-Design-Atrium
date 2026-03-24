@@ -9,15 +9,16 @@ import {
 import Map from "../components/Map";
 import LikedLots from "../components/LikedLots";
 import Projects from "../components/Projects";
+import NotificationBell, { useUnreadCount } from "../components/Notifications";
 import Login from "../components/Auth/Login";
 import ProfileSetup from "../components/Auth/ProfileSetup";
 import Profile from "../components/Auth/Profile";
 import atriumIcon from "../pics/atrium_icon.png";
 import { useAuth } from "./context/AuthContext";
 
-function Topbar() {
+function Topbar({ unreadCount, onRead }) {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   return (
     <div className="topbar">
@@ -56,6 +57,9 @@ function Topbar() {
         >
           Projects
         </Link>
+        {user && (
+          <NotificationBell unreadCount={unreadCount} onRead={onRead} />
+        )}
         {!user ? (
           <>
             <Link
@@ -125,24 +129,33 @@ function ProjectsPage() {
     </main>
   );
 }
+
+function AppShell() {
+  const { count, refresh } = useUnreadCount();
+
+  return (
+    <div className="app-root">
+      <Topbar unreadCount={count} onRead={refresh} />
+      <Routes>
+        <Route path="/" element={<MapPage />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/signup"
+          element={<Navigate to="/profile-setup" replace />}
+        />
+        <Route path="/profile-setup" element={<ProfileSetup />} />
+        <Route path="/profile" element={<Profile />} />
+      </Routes>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="app-root">
-        <Topbar />
-        <Routes>
-          <Route path="/" element={<MapPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/signup"
-            element={<Navigate to="/profile-setup" replace />}
-          />
-          <Route path="/profile-setup" element={<ProfileSetup />} />
-          <Route path="/profile" element={<Profile />} />
-        </Routes>
-      </div>
+      <AppShell />
     </BrowserRouter>
   );
 }

@@ -47,7 +47,7 @@ export default function LikedLots() {
       <div className="projects-page">
         <div className="projects-login-prompt">
           <h1 className="projects-title">Liked Lots</h1>
-          <p className="projects-subtitle">You need to be logged in to see your liked lots.</p>
+          <p className="projects-subtitle">You must be logged in to see your liked lots.</p>
         </div>
       </div>
     )
