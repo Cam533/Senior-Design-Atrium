@@ -8,7 +8,7 @@ import { useAuth } from '../src/context/AuthContext'
 
 export default function LotDetails({ parcel = null, onBack = () => {}, scores: initialScores = null, loadingScores: initialLoadingScores = false, censusData: initialCensusData = null, loadingCensus: initialLoadingCensus = false }) {
   const [scores, setScores] = useState(initialScores)
-  const [loadingScores, setLoadingScores] = useState(initialLoadingScores)
+  const [loadingScores, setLoadingScores] = useState(initialScores)
   const [censusData, setCensusData] = useState(initialCensusData)
   const [loadingCensus, setLoadingCensus] = useState(initialLoadingCensus)
   const [liked, setLiked] = useState(false)
