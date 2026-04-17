@@ -77,7 +77,7 @@
   display: flex;
   gap: 0;
   align-items: stretch;
-  min-height: 70vh;
+  min-height: 100vh;
   margin-bottom: 24px;
 }
 
@@ -342,6 +342,104 @@
   margin: 0 0 6px 0;
 }
 
+.project-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project-item-edit-btn,
+.project-item-save-btn,
+.project-item-cancel-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.project-item-edit-btn {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.project-item-edit-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.project-item-edit-fields {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-item-edit-name,
+.project-item-edit-description {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.project-item-edit-name {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.project-item-edit-description {
+  font-size: 13px;
+  min-height: 64px;
+  resize: vertical;
+}
+
+.project-item-edit-name:focus,
+.project-item-edit-description:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.project-item-edit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-item-save-btn {
+  border: none;
+  background: #0f172a;
+  color: #fff;
+}
+
+.project-item-save-btn:hover {
+  background: #1e293b;
+}
+
+.project-item-save-btn:disabled,
+.project-item-cancel-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.project-item-cancel-btn {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+
+.project-item-cancel-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
 .project-item-description {
   font-size: 14px;
   color: #64748b;
@@ -440,6 +538,8 @@
   flex-shrink: 0;
   transition: background 140ms ease;
 }
+
+
 
 .project-plot-view-details-btn:hover {
   background: #1e293b;

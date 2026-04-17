@@ -8,7 +8,12 @@ const API_URL = 'http://localhost:8000/chat'
 
 // Independent ephemeral parcel chat: own messages, input, and send behavior.
 // No global state is modified; closing and reopening resets the panel.
-export default function ParcelChat({ parcel = null, onClose = () => {} }) {
+export default function ParcelChat({
+  parcel = null,
+  onClose = () => {},
+  nearestPark = null,
+  nearestTransitStop = null,
+}) {
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -112,16 +117,26 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
     if (parcel.lat && parcel.lon) {
       setLoadingCensus(true)
       
-      // Use precomputed scores already attached to the parcel (avoid recalculating).
-      // Expected fields: environmental_score, recreational_score, transit_score, walkability_score
+      // Prefer precomputed score fields attached to the parcel.
+      // Also merge nearest-place data coming from the map so cards match map markers.
       const precomputedScores = {
         environmental_score: parcel.environmental_score,
         recreational_score: parcel.recreational_score,
         transit_score: parcel.transit_score,
         walkability_score: parcel.walkability_score,
+        nearest_park: nearestPark ?? null,
+        nearest_transit_stop: nearestTransitStop ?? null,
+        distance_to_nearest_park_m: nearestPark?.distance_m ?? null,
+        distance_to_nearest_transit_stop_m: nearestTransitStop?.distance_m ?? null,
       }
+      const hasAnyPrecomputedScore = [
+        precomputedScores.environmental_score,
+        precomputedScores.recreational_score,
+        precomputedScores.transit_score,
+        precomputedScores.walkability_score,
+      ].some((v) => Number.isFinite(Number(v)))
 
-      if (precomputedScores) {
+      if (hasAnyPrecomputedScore) {
         setScores(precomputedScores)
         setLoadingScores(false)
       } else {
@@ -169,7 +184,21 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
         })
     }
     setShowRecommendations(true)
-  }, [parcel, user?.id])
+  }, [parcel, user?.id, nearestPark, nearestTransitStop])
+
+  // Keep nearest-place details in sync with map marker data after async fetch returns.
+  useEffect(() => {
+    setScores((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        nearest_park: nearestPark ?? null,
+        nearest_transit_stop: nearestTransitStop ?? null,
+        distance_to_nearest_park_m: nearestPark?.distance_m ?? null,
+        distance_to_nearest_transit_stop_m: nearestTransitStop?.distance_m ?? null,
+      }
+    })
+  }, [nearestPark, nearestTransitStop])
 
   const handleToggleLike = async () => {
     if (!user?.id) return
@@ -639,7 +668,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                       <span style={{ width: 32, height: 32, borderRadius: 8, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📍</span>
                       <span style={{ color: '#475569' }}>Nearest park</span>
                       <span style={{ fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
-                        {scores.distance_to_nearest_park_m != null ? (scores.distance_to_nearest_park_m >= 1000 ? `${(scores.distance_to_nearest_park_m / 1000).toFixed(2)} km` : `${Math.round(scores.distance_to_nearest_park_m)} m`) : 'N/A'}
+                        {scores.distance_to_nearest_park_m != null ? (scores.distance_to_nearest_park_m >= 1000 ? `${(scores.distance_to_nearest_park_m / 1000).toFixed(2)} km` : `${Math.round(scores.distance_to_nearest_park_m)} m`) : 'Loading...'}
                       </span>
                     </div>
                   )}
@@ -667,7 +696,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                       <span style={{ width: 32, height: 32, borderRadius: 8, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🚏</span>
                       <span style={{ color: '#475569' }}>Nearest transit stop</span>
                       <span style={{ fontWeight: 700, color: '#0f172a', marginLeft: 'auto' }}>
-                        {scores.distance_to_nearest_transit_stop_m != null ? (scores.distance_to_nearest_transit_stop_m >= 1000 ? `${(scores.distance_to_nearest_transit_stop_m / 1000).toFixed(2)} km` : `${Math.round(scores.distance_to_nearest_transit_stop_m)} m`) : 'N/A'}
+                        {scores.distance_to_nearest_transit_stop_m != null ? (scores.distance_to_nearest_transit_stop_m >= 1000 ? `${(scores.distance_to_nearest_transit_stop_m / 1000).toFixed(2)} km` : `${Math.round(scores.distance_to_nearest_transit_stop_m)} m`) : 'Loading...'}
                       </span>
                     </div>
                   )}

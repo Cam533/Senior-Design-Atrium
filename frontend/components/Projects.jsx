@@ -22,6 +22,11 @@ export default function Projects() {
   const [expandedProjectId, setExpandedProjectId] = useState(null) // which project's plots are expanded
   const [selectedParcel, setSelectedParcel] = useState(null) // for LotDetails
   const [plotsCache, setPlotsCache] = useState({}) // projectId -> { loading, parcels }
+  const [editingProjectId, setEditingProjectId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editingPlotsProjectId, setEditingPlotsProjectId] = useState(null)
 
   // ✅ hooks must be before any return
   useEffect(() => {
@@ -166,6 +171,137 @@ export default function Projects() {
     }
   }
 
+  const startEditingProject = (project) => {
+    setEditingProjectId(project.id)
+    setEditName(project.name || '')
+    setEditDescription(project.description || '')
+  }
+
+  const cancelEditingProject = () => {
+    setEditingProjectId(null)
+    setEditName('')
+    setEditDescription('')
+    setSavingEdit(false)
+  }
+
+  const saveProjectEdits = async (project) => {
+    if (!editName.trim() || !user?.id || savingEdit) return
+    setSavingEdit(true)
+    try {
+      const payload = {
+        id: project.id,
+        owner_id: user.id,
+        name: editName.trim(),
+        description: editDescription,
+        plots: Array.isArray(project.plots) ? project.plots : [],
+      }
+      const response = await fetch('http://localhost:8000/update-project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        console.error('Failed to update project:', response.statusText)
+        setSavingEdit(false)
+        return
+      }
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === project.id
+            ? { ...p, name: payload.name, description: payload.description }
+            : p
+        )
+      )
+      cancelEditingProject()
+    } catch (err) {
+      console.error('Error updating project:', err)
+      setSavingEdit(false)
+    }
+  }
+
+  const startEditingProjectPlots = async (project) => {
+    const projectId = project.id
+    setEditingPlotsProjectId(projectId)
+    setShowForm(true)
+    setShowMapPicker(true)
+    setProjectName(project.name || '')
+    setProjectDescription(project.description || '')
+
+    const cachedParcels = plotsCache[projectId]?.parcels
+    if (Array.isArray(cachedParcels)) {
+      setProjectPlots(cachedParcels)
+      return
+    }
+    const plotIds = Array.isArray(project.plots) ? project.plots : []
+    if (!plotIds.length) {
+      setProjectPlots([])
+      return
+    }
+    try {
+      const res = await fetch('http://localhost:8000/parcels_by_ids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objectids: plotIds.map(String) }),
+      })
+      const data = await res.json()
+      const parcels = Array.isArray(data?.parcels) ? data.parcels : []
+      setProjectPlots(parcels)
+      setPlotsCache((c) => ({ ...c, [projectId]: { loading: false, parcels } }))
+    } catch (err) {
+      console.error('Failed to load plots for editing:', err)
+      setProjectPlots([])
+    }
+  }
+
+  const saveEditedProjectPlots = async () => {
+    if (!editingPlotsProjectId || !user?.id) return
+    const project = projects.find((p) => p.id === editingPlotsProjectId)
+    if (!project) return
+
+    const plotIds = Array.isArray(projectPlots)
+      ? projectPlots.map((parcel) => String(getParcelId(parcel))).filter(Boolean)
+      : []
+
+    const payload = {
+      id: project.id,
+      owner_id: user.id,
+      name: project.name,
+      description: project.description || '',
+      plots: plotIds,
+    }
+
+    try {
+      const response = await fetch('http://localhost:8000/update-project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        console.error('Failed to save project plots:', response.statusText)
+        return
+      }
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === project.id
+            ? { ...p, plots: plotIds }
+            : p
+        )
+      )
+      setPlotsCache((c) => ({
+        ...c,
+        [project.id]: { loading: false, parcels: projectPlots },
+      }))
+      setShowMapPicker(false)
+      setShowForm(false)
+      setEditingPlotsProjectId(null)
+      setProjectPlots([])
+      setProjectName('')
+      setProjectDescription('')
+    } catch (err) {
+      console.error('Error saving project plots:', err)
+    }
+  }
+
   return (
     <div className={`projects-page ${showMapPicker ? 'projects-page-with-map' : ''}`}>
       <header className="projects-header">
@@ -189,6 +325,11 @@ export default function Projects() {
           <div className="project-form-wrapper">
             <div className="project-form">
               <h2 className="project-form-title">New project</h2>
+              {editingPlotsProjectId && (
+                <p className="projects-subtitle" style={{ margin: '0 0 12px 0' }}>
+                  Editing plots for an existing project. Save to update its plot list.
+                </p>
+              )}
               <label htmlFor="project-name">Project name</label>
               <input
                 id="project-name"
@@ -239,10 +380,10 @@ export default function Projects() {
                 <button
                   type="button"
                   className="project-form-save"
-                  onClick={createProject}
-                  disabled={!projectName.trim()}
+                  onClick={editingPlotsProjectId ? saveEditedProjectPlots : createProject}
+                  disabled={!projectName.trim() && !editingPlotsProjectId}
                 >
-                  Save project
+                  {editingPlotsProjectId ? 'Save plot changes' : 'Save project'}
                 </button>
                 <button
                   type="button"
@@ -253,6 +394,7 @@ export default function Projects() {
                     setProjectDescription('')
                     setProjectPlots([])
                     setShowMapPicker(false)
+                    setEditingPlotsProjectId(null)
                   }}
                 >
                   Cancel
@@ -293,12 +435,62 @@ export default function Projects() {
         <div className="projects-list">
           {projects.map((p) => (
             <article key={p.id} className="project-item">
-              <h3 className="project-item-name">{p.name}</h3>
-              {p.description ? (
-                <p className="project-item-description">{p.description}</p>
-              ) : (
-                <p className="project-item-description" aria-hidden>No description.</p>
-              )}
+              <div className="project-item-header">
+                {editingProjectId === p.id ? (
+                  <div className="project-item-edit-fields">
+                    <input
+                      type="text"
+                      className="project-item-edit-name"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Project name"
+                    />
+                    <textarea
+                      className="project-item-edit-description"
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Description (optional)"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <h3 className="project-item-name">{p.name}</h3>
+                    {p.description ? (
+                      <p className="project-item-description">{p.description}</p>
+                    ) : (
+                      <p className="project-item-description" aria-hidden>No description.</p>
+                    )}
+                  </div>
+                )}
+                {editingProjectId === p.id ? (
+                  <div className="project-item-edit-actions">
+                    <button
+                      type="button"
+                      className="project-item-save-btn"
+                      onClick={() => saveProjectEdits(p)}
+                      disabled={!editName.trim() || savingEdit}
+                    >
+                      {savingEdit ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      className="project-item-cancel-btn"
+                      onClick={cancelEditingProject}
+                      disabled={savingEdit}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="project-item-edit-btn"
+                    onClick={() => startEditingProjectPlots(p)}
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
               {p.plots && p.plots.length > 0 && (
                 <div className="project-item-plots">
                   <button
@@ -339,6 +531,7 @@ export default function Projects() {
                       ) : (
                         <p className="project-item-plots-empty">No parcel data found for these plot IDs.</p>
                       ))}
+
                     </div>
                   )}
                 </div>

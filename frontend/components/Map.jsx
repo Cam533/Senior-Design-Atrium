@@ -102,9 +102,15 @@ function ChunkedGeoJSON({ data, batchSize = 300, options = {} }) {
 
 // Renders circle markers for nearest park and transit on the map
 function NearestPlacesMarkers({ nearestPark, nearestTransitStop }) {
+  const hasValidNearest = (place) =>
+    place &&
+    typeof place.lat === "number" &&
+    typeof place.lon === "number" &&
+    Number.isFinite(Number(place.distance_m));
+
   return (
     <>
-      {nearestPark && typeof nearestPark.lat === "number" && typeof nearestPark.lon === "number" && (
+      {hasValidNearest(nearestPark) && (
         <CircleMarker
           center={[nearestPark.lat, nearestPark.lon]}
           pathOptions={{ color: "#16a34a", fillColor: "#16a34a", fillOpacity: 0.8, weight: 2 }}
@@ -120,7 +126,7 @@ function NearestPlacesMarkers({ nearestPark, nearestTransitStop }) {
           </Popup>
         </CircleMarker>
       )}
-      {nearestTransitStop && typeof nearestTransitStop.lat === "number" && typeof nearestTransitStop.lon === "number" && (
+      {hasValidNearest(nearestTransitStop) && (
         <CircleMarker
           center={[nearestTransitStop.lat, nearestTransitStop.lon]}
           pathOptions={{ color: "#2563eb", fillColor: "#2563eb", fillOpacity: 0.8, weight: 2 }}
@@ -323,18 +329,10 @@ export default function Map({ onParcelSelectForProject = null }) {
       layer.setStyle({ color: "red" });
       selectedLayerRef.current = layer;
 
-      // If we're in "add to project" mode, report selection and don't open chat
+      // In project mode, still add the parcel to the project list
+      // but continue to open the same parcel info/chat UI as the main map.
       if (onParcelSelectForProject && typeof onParcelSelectForProject === "function") {
         onParcelSelectForProject(parcelWithCoords);
-        try {
-          const map = (layer && layer._map) || mapInstance;
-          if (map && layer.getBounds && typeof layer.getBounds === "function") {
-            const bounds = layer.getBounds();
-            const targetLatLng = bounds.getCenter();
-            map.flyTo(targetLatLng, Math.max(map.getZoom(), 16), { animate: true, duration: 0.4 });
-          }
-        } catch (err) {}
-        return;
       }
 
       setSelectedPolygon(parcelWithCoords);
@@ -434,9 +432,19 @@ export default function Map({ onParcelSelectForProject = null }) {
         if (cancelled) return;
         const park = data?.nearest_park;
         const transit = data?.nearest_transit_stop;
-        if (park && typeof park.lat === "number" && typeof park.lon === "number") setNearestPark(park);
+        if (
+          park &&
+          typeof park.lat === "number" &&
+          typeof park.lon === "number" &&
+          Number.isFinite(Number(park.distance_m))
+        ) setNearestPark(park);
         else setNearestPark(null);
-        if (transit && typeof transit.lat === "number" && typeof transit.lon === "number") setNearestTransitStop(transit);
+        if (
+          transit &&
+          typeof transit.lat === "number" &&
+          typeof transit.lon === "number" &&
+          Number.isFinite(Number(transit.distance_m))
+        ) setNearestTransitStop(transit);
         else setNearestTransitStop(null);
       })
       .catch(() => {
@@ -654,7 +662,7 @@ export default function Map({ onParcelSelectForProject = null }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {filteredMapData && <ChunkedGeoJSON data={filteredMapData} batchSize={300} options={chunkOptions} />}
+          {filteredMapData && <ChunkedGeoJSON data={filteredMapData} batchSize={1000} options={chunkOptions} />}
           <NearestPlacesMarkers nearestPark={nearestPark} nearestTransitStop={nearestTransitStop} />
         </MapContainer>
       </div>
@@ -752,6 +760,8 @@ export default function Map({ onParcelSelectForProject = null }) {
       {showParcelChat && selectedPolygon && (
         <ParcelChat
           parcel={selectedPolygon}
+          nearestPark={nearestPark}
+          nearestTransitStop={nearestTransitStop}
           onClose={() => setShowParcelChat(false)}
         />
       )}
