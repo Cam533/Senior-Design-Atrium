@@ -214,6 +214,13 @@ class ProjectRequest(BaseModel):
     plots: Optional[List[str]] = []
     created_at: str
 
+class ProjectUpdateRequest(BaseModel):
+    id: str
+    owner_id: str
+    name: str
+    description: Optional[str] = ""
+    plots: Optional[List[str]] = []
+
 class PlotImagesResponse(BaseModel):
     """Response containing file IDs for a plot."""
     parcel_number: str
@@ -495,6 +502,40 @@ def get_projects(owner_id: str):
         if "project" in str(e) or "does not exist" in str(e):
             return {"projects": []}
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/update-project")
+def update_project(req: ProjectUpdateRequest):
+    """Update an existing project for the owner."""
+    if engine is None:
+        raise HTTPException(status_code=503, detail=_RDS_REQUIRED_MSG)
+    sql = text("""
+    UPDATE project
+    SET name = :name,
+        description = :description,
+        plots = :plots
+    WHERE id = :id
+      AND owner_id = :owner_id
+    """)
+    try:
+        description = req.description if req.description is not None else ""
+        plots = req.plots if req.plots is not None else []
+        with engine.begin() as conn:
+            result = conn.execute(sql, {
+                "id": req.id,
+                "owner_id": req.owner_id,
+                "name": req.name,
+                "description": description,
+                "plots": plots,
+            })
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Project not found")
+        return {"status": "ok", "message": "project updated"}
+    except HTTPException:
+        raise
+    except ProgrammingError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 @app.post("/parcel_census_data")
