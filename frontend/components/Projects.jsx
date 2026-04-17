@@ -258,6 +258,10 @@ export default function Projects() {
     const project = projects.find((p) => p.id === editingPlotsProjectId)
     if (!project) return
 
+    const nextName = (typeof projectName === 'string' ? projectName : '').trim()
+    if (!nextName) return
+    const nextDescription = typeof projectDescription === 'string' ? projectDescription : ''
+
     const plotIds = Array.isArray(projectPlots)
       ? projectPlots.map((parcel) => String(getParcelId(parcel))).filter(Boolean)
       : []
@@ -265,8 +269,8 @@ export default function Projects() {
     const payload = {
       id: project.id,
       owner_id: user.id,
-      name: project.name,
-      description: project.description || '',
+      name: nextName,
+      description: nextDescription,
       plots: plotIds,
     }
 
@@ -283,7 +287,7 @@ export default function Projects() {
       setProjects((prev) =>
         prev.map((p) =>
           p.id === project.id
-            ? { ...p, plots: plotIds }
+            ? { ...p, name: nextName, description: nextDescription, plots: plotIds }
             : p
         )
       )
