@@ -39,6 +39,16 @@ function Topbar({ unreadCount, onRead }) {
           Map
         </Link>
         <Link
+          to="/about"
+          className={
+            location.pathname === "/about"
+              ? "nav-link nav-button active"
+              : "nav-link nav-button"
+          }
+        >
+          About
+        </Link>
+        <Link
           to="/chat"
           className={
             location.pathname === "/chat"

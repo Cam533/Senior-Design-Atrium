@@ -110,10 +110,23 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
     setTimeout(() => inputRef.current?.focus(), 200)
     
     if (parcel.lat && parcel.lon) {
-      setLoadingScores(true)
       setLoadingCensus(true)
       
-      // Fetch geographic scores
+      // Use precomputed scores already attached to the parcel (avoid recalculating).
+      // Expected fields: environmental_score, recreational_score, transit_score, walkability_score
+      const precomputedScores = {
+        environmental_score: parcel.environmental_score,
+        recreational_score: parcel.recreational_score,
+        transit_score: parcel.transit_score,
+        walkability_score: parcel.walkability_score,
+      }
+
+      if (precomputedScores) {
+        setScores(precomputedScores)
+        setLoadingScores(false)
+      } else {
+        setLoadingScores(true)
+        // Fetch geographic scores
       fetch('http://localhost:8000/geographic_scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,6 +141,7 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
           console.error('Failed to fetch scores:', err)
           setLoadingScores(false)
         })
+      }
       
       // Fetch census data (debug: log status and body)
       fetch('http://localhost:8000/parcel_census_data', {
@@ -505,7 +519,28 @@ export default function ParcelChat({ parcel = null, onClose = () => {} }) {
                 }
               }
               let extraCount = 0
-              const skipKeys = new Set(['address', 'lniaddresskey','build_rank','objectid','opa_id','shape__area','shape__length','lat','lon', 'date_update', 'owner2'])
+              const skipKeys = new Set([
+                'address',
+                'lniaddresskey',
+                'build_rank',
+                'objectid',
+                'opa_id',
+                'shape__area',
+                'shape__length',
+                'lat',
+                'lon',
+                'date_update',
+                'owner2',
+                // hide score fields from raw property rows; shown in score cards below
+                'environmental_score',
+                'recreational_score',
+                'transit_score',
+                'walkability_score',
+                'distance_to_nearest_park_m',
+                'distance_to_nearest_transit_stop_m',
+                'nearest_park',
+                'nearest_transit_stop',
+              ])
               for (const [k,v] of Object.entries(props)) {
                 if (used.has(k)) continue
                 if (extraCount >= 6) break
