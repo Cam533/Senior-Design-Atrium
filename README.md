@@ -4,8 +4,6 @@
 
 Using geospatial data, zoning regulations, census information, and large language models, Atrium surfaces actionable insights about what *can* be built, what *should* be built, and what is most feasible given local demand, sustainability goals, and equity considerations.
 
-**Demo Video:** [link](https://www.youtube.com/watch?v=K3_l6lC78vg)
-
 ---
 
 ## Problem
